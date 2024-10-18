@@ -69,7 +69,7 @@ export async function POST(request: Request) {
     console.log("Final prompts list:", prompts);
 
     // Send the entire prompts list to the image-generator
-    await fetch('http://localhost:3000/api/image-generator', {
+    await fetch('/api/image-generator', {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',

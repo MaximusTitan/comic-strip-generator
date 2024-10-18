@@ -1,5 +1,6 @@
 "use client";
 
+
 import { useState, useRef, useEffect } from 'react';
 import Image from 'next/image'; // Import Next.js Image component
 import { Button } from "@/components/ui/button"; // Ensure this path is correct
@@ -7,6 +8,7 @@ import { Textarea } from "@/components/ui/textarea"; // Ensure this path is corr
 import { useAuth } from "@clerk/nextjs"; // Import useAuth for authentication
 import { redirect } from "next/navigation"; // Import redirect for navigation
 import LoadingSpinner from "@/components/ui/LoadingSpinner"; // Import the loading spinner
+import Head from 'next/head';
 
 export default function Home() {
   const { userId } = useAuth(); // Get userId from useAuth
@@ -89,6 +91,11 @@ export default function Home() {
   }, [prompt]);
 
   return (
+    <>
+    <Head>
+        <title>Comic Strip Generator</title>
+        <meta name="description" content="Create your own comic strips!" />
+    </Head>
     <div className="flex min-h-screen">
       {/* Left half */}
       <div className="w-[30%] p-4 bg-gray-100 flex flex-col items-center">
@@ -136,5 +143,6 @@ export default function Home() {
         </div>
       </div>
     </div>
+    </>
   );
 }
