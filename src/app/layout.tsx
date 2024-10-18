@@ -1,5 +1,4 @@
-import { ReactNode } from "react";
-import type { Metadata } from "next";
+import type { Metadata } from "next"; // Removed ReactNode import
 import localFont from "next/font/local";
 import ClerkClientProvider from "../components/ClerkClientProvider"; // Adjust the path if needed
 import "./globals.css";
