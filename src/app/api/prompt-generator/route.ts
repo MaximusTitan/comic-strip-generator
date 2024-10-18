@@ -1,7 +1,7 @@
 // /app/api/story-generator/route.ts
 import { NextResponse } from "next/server";
 
-let prompts: string[] = []; // Define the prompts list
+const prompts: string[] = []; // Define the prompts list
 
 export async function POST(request: Request) {
   const { prompt } = await request.json(); // Removed type from destructuring
@@ -27,7 +27,7 @@ export async function POST(request: Request) {
     }
   ];
 
-  let model = "gpt-4o"; // Update with the latest model name
+  const model = "gpt-4o"; // Update with the latest model name
 
   try {
     // Continue generating and adding to prompts list until it reaches 6 items

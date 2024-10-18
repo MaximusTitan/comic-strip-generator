@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useRef, useEffect } from 'react';
+import Image from 'next/image'; // Import Next.js Image component
 import { Button } from "@/components/ui/button"; // Ensure this path is correct
 import { Textarea } from "@/components/ui/textarea"; // Ensure this path is correct
 import { useAuth } from "@clerk/nextjs"; // Import useAuth for authentication
@@ -116,7 +117,13 @@ export default function Home() {
           {imageUrls.length > 0 ? (
             imageUrls.map((url, index) => (
               <div key={index} className="bg-gray-200 rounded-lg flex items-center justify-center">
-                <img src={url} alt={`Panel ${index + 1}`} className="max-w-full max-h-full" />
+                <Image 
+                  src={url} 
+                  alt={`Panel ${index + 1}`} 
+                  width={500} // Replace with actual dimensions or calculated sizes
+                  height={500} // Replace with actual dimensions or calculated sizes
+                  className="max-w-full max-h-full"
+                />
               </div>
             ))
           ) : (
