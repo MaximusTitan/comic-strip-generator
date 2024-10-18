@@ -68,8 +68,11 @@ export async function POST(request: Request) {
     // Log the final prompts list
     console.log("Final prompts list:", prompts);
 
+    const baseUrl = request.headers.get("origin") || `http://localhost:3000`; // Default to localhost if origin is not set
+
+
     // Send the entire prompts list to the image-generator
-    await fetch('/api/image-generator', {
+    await fetch('${baseUrl}/api/image-generator', {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
