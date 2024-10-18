@@ -29,6 +29,11 @@ export async function POST(request: Request) {
 
   const model = "gpt-4o"; // Update with the latest model name
 
+  // Set base URL based on environment
+  const baseUrl = process.env.NODE_ENV === 'production' 
+    ? 'https://comic-strip-generator-rho.vercel.app' 
+    : 'http://localhost:3000';
+
   try {
     // Continue generating and adding to prompts list until it reaches 6 items
     while (prompts.length < 6) {
@@ -69,7 +74,7 @@ export async function POST(request: Request) {
     console.log("Final prompts list:", prompts);
 
     // Send the entire prompts list to the image-generator
-    await fetch('http://localhost:3000/api/image-generator', {
+    await fetch(`${baseUrl}/api/image-generator`, {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
