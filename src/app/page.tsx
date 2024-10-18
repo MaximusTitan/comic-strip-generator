@@ -1,101 +1,133 @@
-import Image from "next/image";
+"use client";
+
+import { useState, useRef, useEffect } from 'react';
+import { Button } from "@/components/ui/button"; // Ensure this path is correct
+import { Textarea } from "@/components/ui/textarea"; // Ensure this path is correct
+import { useAuth } from "@clerk/nextjs"; // Import useAuth for authentication
+import { redirect } from "next/navigation"; // Import redirect for navigation
+import LoadingSpinner from "@/components/ui/LoadingSpinner"; // Import the loading spinner
 
 export default function Home() {
-  return (
-    <div className="grid grid-rows-[20px_1fr_20px] items-center justify-items-center min-h-screen p-8 pb-20 gap-16 sm:p-20 font-[family-name:var(--font-geist-sans)]">
-      <main className="flex flex-col gap-8 row-start-2 items-center sm:items-start">
-        <Image
-          className="dark:invert"
-          src="https://nextjs.org/icons/next.svg"
-          alt="Next.js logo"
-          width={180}
-          height={38}
-          priority
-        />
-        <ol className="list-inside list-decimal text-sm text-center sm:text-left font-[family-name:var(--font-geist-mono)]">
-          <li className="mb-2">
-            Get started by editing{" "}
-            <code className="bg-black/[.05] dark:bg-white/[.06] px-1 py-0.5 rounded font-semibold">
-              src/app/page.tsx
-            </code>
-            .
-          </li>
-          <li>Save and see your changes instantly.</li>
-        </ol>
+  const { userId } = useAuth(); // Get userId from useAuth
 
-        <div className="flex gap-4 items-center flex-col sm:flex-row">
-          <a
-            className="rounded-full border border-solid border-transparent transition-colors flex items-center justify-center bg-foreground text-background gap-2 hover:bg-[#383838] dark:hover:bg-[#ccc] text-sm sm:text-base h-10 sm:h-12 px-4 sm:px-5"
-            href="https://vercel.com/new?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-            target="_blank"
-            rel="noopener noreferrer"
-          >
-            <Image
-              className="dark:invert"
-              src="https://nextjs.org/icons/vercel.svg"
-              alt="Vercel logomark"
-              width={20}
-              height={20}
+  // Redirect to sign-in if no user is logged in
+  if (!userId) {
+    redirect("/auth/sign-in");
+  }
+
+  const [prompt, setPrompt] = useState('');
+  const [imageUrls, setImageUrls] = useState<string[]>([]); // State to store generated image URLs
+  const [loading, setLoading] = useState(false); // State to manage loading spinner
+  const textareaRef = useRef<HTMLTextAreaElement>(null);
+
+  const handleSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    console.log('Submitted prompt:', prompt);
+    setLoading(true); // Set loading to true when the button is clicked
+
+    try {
+        // Fetch for prompt-generator
+        const response = await fetch('/api/prompt-generator', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+            },
+            body: JSON.stringify({ prompt }), 
+        });
+
+        const data = await response.json();
+        if (response.ok) {
+            const prompts = data.prompts; // Store the list of prompts
+
+            console.log('Response from backend:', data.result);
+            console.log('Prompts:', prompts);
+
+            // Fetch for image-generator with the list of prompts
+            const imageResponse = await fetch('/api/image-generator', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                },
+                body: JSON.stringify({ prompts }), // Send the array of prompts
+            });
+
+            const imageData = await imageResponse.json();
+            if (imageResponse.ok) {
+                const { imageUrls } = imageData; // Assuming backend returns an array of image URLs
+                setImageUrls(imageUrls);
+                console.log('Image URLs:', imageUrls);
+            } else {
+                console.error('Error from image-generator:', imageData.message);
+            }
+
+        } else {
+            console.error('Error from prompt-generator:', data.message);
+        }
+
+    } catch (error) {
+        console.error('Error submitting prompt:', error);
+    } finally {
+        setLoading(false); // Set loading to false after the process is complete
+    }
+  };
+
+  const handleTextareaChange = (e: React.ChangeEvent<HTMLTextAreaElement>) => {
+    setPrompt(e.target.value);
+    adjustTextareaHeight();
+  };
+
+  const adjustTextareaHeight = () => {
+    if (textareaRef.current) {
+      textareaRef.current.style.height = 'auto';
+      textareaRef.current.style.height = `${textareaRef.current.scrollHeight}px`;
+    }
+  };
+
+  useEffect(() => {
+    adjustTextareaHeight();
+  }, [prompt]);
+
+  return (
+    <div className="flex min-h-screen">
+      {/* Left half */}
+      <div className="w-[30%] p-4 bg-gray-100 flex flex-col items-center">
+        <h1 className="text-2xl font-bold mb-8">Comic Strip Generator</h1>
+        <form onSubmit={handleSubmit} className="w-full max-w-sm">
+          <div className="flex flex-col space-y-2">
+            <Textarea
+              ref={textareaRef}
+              placeholder="Enter your prompt"
+              value={prompt}
+              onChange={handleTextareaChange}
+              className="w-full min-h-[100px] resize-none"
+              rows={3}
             />
-            Deploy now
-          </a>
-          <a
-            className="rounded-full border border-solid border-black/[.08] dark:border-white/[.145] transition-colors flex items-center justify-center hover:bg-[#f2f2f2] dark:hover:bg-[#1a1a1a] hover:border-transparent text-sm sm:text-base h-10 sm:h-12 px-4 sm:px-5 sm:min-w-44"
-            href="https://nextjs.org/docs?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-            target="_blank"
-            rel="noopener noreferrer"
-          >
-            Read our docs
-          </a>
+            <Button type="submit" className="w-full">
+              Send
+            </Button>
+          </div>
+        </form>
+      </div>
+
+      {/* Right half */}
+      <div className="w-[70%] p-[2%] bg-white relative">
+        {loading && <LoadingSpinner />} {/* Display the loading spinner when loading */}
+        <div className="grid grid-cols-2 grid-rows-3 gap-[4%] h-full">
+          {imageUrls.length > 0 ? (
+            imageUrls.map((url, index) => (
+              <div key={index} className="bg-gray-200 rounded-lg flex items-center justify-center">
+                <img src={url} alt={`Panel ${index + 1}`} className="max-w-full max-h-full" />
+              </div>
+            ))
+          ) : (
+            [...Array(6)].map((_, index) => (
+              <div key={index} className="bg-gray-200 rounded-lg flex items-center justify-center">
+                <span className="text-gray-500">Panel {index + 1}</span>
+              </div>
+            ))
+          )}
         </div>
-      </main>
-      <footer className="row-start-3 flex gap-6 flex-wrap items-center justify-center">
-        <a
-          className="flex items-center gap-2 hover:underline hover:underline-offset-4"
-          href="https://nextjs.org/learn?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-          target="_blank"
-          rel="noopener noreferrer"
-        >
-          <Image
-            aria-hidden
-            src="https://nextjs.org/icons/file.svg"
-            alt="File icon"
-            width={16}
-            height={16}
-          />
-          Learn
-        </a>
-        <a
-          className="flex items-center gap-2 hover:underline hover:underline-offset-4"
-          href="https://vercel.com/templates?framework=next.js&utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-          target="_blank"
-          rel="noopener noreferrer"
-        >
-          <Image
-            aria-hidden
-            src="https://nextjs.org/icons/window.svg"
-            alt="Window icon"
-            width={16}
-            height={16}
-          />
-          Examples
-        </a>
-        <a
-          className="flex items-center gap-2 hover:underline hover:underline-offset-4"
-          href="https://nextjs.org?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-          target="_blank"
-          rel="noopener noreferrer"
-        >
-          <Image
-            aria-hidden
-            src="https://nextjs.org/icons/globe.svg"
-            alt="Globe icon"
-            width={16}
-            height={16}
-          />
-          Go to nextjs.org →
-        </a>
-      </footer>
+      </div>
     </div>
   );
 }
