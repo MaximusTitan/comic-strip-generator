@@ -1,35 +1,34 @@
 "use client";
 
-
 import { useState, useRef, useEffect } from 'react';
-import Image from 'next/image'; // Import Next.js Image component
-import { Button } from "@/components/ui/button"; // Ensure this path is correct
-import { Textarea } from "@/components/ui/textarea"; // Ensure this path is correct
-import { useAuth } from "@clerk/nextjs"; // Import useAuth for authentication
-import { redirect } from "next/navigation"; // Import redirect for navigation
-import LoadingSpinner from "@/components/ui/LoadingSpinner"; // Import the loading spinner
+import Image from 'next/image'; 
+import { Button } from "@/components/ui/button"; 
+import { Textarea } from "@/components/ui/textarea"; 
+import { useAuth } from "@clerk/nextjs"; 
+import { redirect } from "next/navigation"; 
+import LoadingSpinner from "@/components/ui/LoadingSpinner"; 
 import Head from 'next/head';
+import html2canvas from 'html2canvas'; // Import html2canvas
 
 export default function Home() {
-  const { userId } = useAuth(); // Get userId from useAuth
+  const { userId } = useAuth(); 
 
-  // Redirect to sign-in if no user is logged in
   if (!userId) {
     redirect("/auth/sign-in");
   }
 
   const [prompt, setPrompt] = useState('');
-  const [imageUrls, setImageUrls] = useState<string[]>([]); // State to store generated image URLs
-  const [loading, setLoading] = useState(false); // State to manage loading spinner
+  const [imageUrls, setImageUrls] = useState<string[]>([]); 
+  const [loading, setLoading] = useState(false); 
   const textareaRef = useRef<HTMLTextAreaElement>(null);
+  const imageContainerRef = useRef<HTMLDivElement>(null); // Ref for the image container
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     console.log('Submitted prompt:', prompt);
-    setLoading(true); // Set loading to true when the button is clicked
+    setLoading(true); 
 
     try {
-        // Fetch for prompt-generator
         const response = await fetch('/api/prompt-generator', {
             method: 'POST',
             headers: {
@@ -40,23 +39,21 @@ export default function Home() {
 
         const data = await response.json();
         if (response.ok) {
-            const prompts = data.prompts; // Store the list of prompts
-
+            const prompts = data.prompts; 
             console.log('Response from backend:', data.result);
             console.log('Prompts:', prompts);
 
-            // Fetch for image-generator with the list of prompts
             const imageResponse = await fetch('/api/image-generator', {
                 method: 'POST',
                 headers: {
                     'Content-Type': 'application/json',
                 },
-                body: JSON.stringify({ prompts }), // Send the array of prompts
+                body: JSON.stringify({ prompts }), 
             });
 
             const imageData = await imageResponse.json();
             if (imageResponse.ok) {
-                const { imageUrls } = imageData; // Assuming backend returns an array of image URLs
+                const { imageUrls } = imageData; 
                 setImageUrls(imageUrls);
                 console.log('Image URLs:', imageUrls);
             } else {
@@ -70,7 +67,7 @@ export default function Home() {
     } catch (error) {
         console.error('Error submitting prompt:', error);
     } finally {
-        setLoading(false); // Set loading to false after the process is complete
+        setLoading(false); 
     }
   };
 
@@ -83,6 +80,22 @@ export default function Home() {
     if (textareaRef.current) {
       textareaRef.current.style.height = 'auto';
       textareaRef.current.style.height = `${textareaRef.current.scrollHeight}px`;
+    }
+  };
+
+  const handleDownload = async () => {
+    if (imageContainerRef.current) {
+      // Use html2canvas to capture the image container and generate a canvas
+      const canvas = await html2canvas(imageContainerRef.current, {
+        scale: 2, // Increase resolution for better quality
+        useCORS: true, // Allow CORS images
+      });
+
+      // Convert the canvas to a PNG URL and trigger download
+      const link = document.createElement('a');
+      link.href = canvas.toDataURL("image/png");
+      link.download = "comic-strip.png";
+      link.click();
     }
   };
 
@@ -120,27 +133,33 @@ export default function Home() {
       {/* Right half */}
       <div className="w-[70%] p-[2%] bg-white relative">
         {loading && <LoadingSpinner />} {/* Display the loading spinner when loading */}
-        <div className="grid grid-cols-2 grid-rows-3 gap-[4%] h-full">
+        <div ref={imageContainerRef} className="grid grid-cols-2 grid-rows-3 gap-[4%] h-full">
           {imageUrls.length > 0 ? (
             imageUrls.map((url, index) => (
-              <div key={index} className="bg-gray-200 rounded-lg flex items-center justify-center">
+              <div key={index} className="bg-gray-300 rounded-lg flex items-center justify-center">
                 <Image 
                   src={url} 
                   alt={`Panel ${index + 1}`} 
-                  width={500} // Replace with actual dimensions or calculated sizes
-                  height={500} // Replace with actual dimensions or calculated sizes
+                  width={500} 
+                  height={500} 
                   className="max-w-full max-h-full"
                 />
               </div>
             ))
           ) : (
             [...Array(6)].map((_, index) => (
-              <div key={index} className="bg-gray-200 rounded-lg flex items-center justify-center">
-                <span className="text-gray-500">Panel {index + 1}</span>
+              <div key={index} className="bg-gray-300 rounded-lg flex items-center justify-center">
+                <span className="text-gray-700">Panel {index + 1}</span>
               </div>
             ))
           )}
         </div>
+        {/* Add the download button */}
+        {imageUrls.length > 0 && (
+          <Button onClick={handleDownload} className="absolute bottom-4 right-4">
+            Download as PNG
+          </Button>
+        )}
       </div>
     </div>
     </>
