@@ -1,4 +1,4 @@
-// /app/api/story-generator/route.ts
+// /app/api/prompt-generator/route.ts
 import { NextResponse } from "next/server";
 
 const prompts: string[] = []; // Define the prompts list
@@ -31,8 +31,8 @@ export async function POST(request: Request) {
 
   // Set base URL based on environment
   const baseUrl = process.env.NODE_ENV === 'production' 
-                ? 'https://comic-strip-generator-topaz.vercel.app' 
-                : 'http://localhost:3000';
+    ? 'https://comic-strip-generator-topaz.vercel.app' 
+    : 'http://localhost:3000';
 
   try {
     // Continue generating and adding to prompts list until it reaches 6 items
