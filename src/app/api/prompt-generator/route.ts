@@ -31,7 +31,11 @@ export async function POST(request: Request) {
 
   // Set base URL based on environment
   const baseUrl = process.env.NODE_ENV === 'production' 
+    // for development
     ? 'https://comic-strip-generator-rho.vercel.app' 
+    // for production
+    //? 'https://comic-strip-generator-topaz.vercel.app'
+    // for testing
     : 'http://localhost:3000';
 
   try {
