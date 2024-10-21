@@ -22,8 +22,9 @@ export async function POST(request: Request) {
       const generatedImages = await Promise.all(
         prompts.map(async (prompt) => {
           try {
+            const hardcodedMessage = "You're a comic strip artist. Your job is to generate a comic-styled image on the following prompt: "; // Define your hardcoded message
             const result: ImageResult = await fal.subscribe("fal-ai/flux/schnell", {
-              input: { prompt }, // Use the individual prompt
+              input: { prompt: hardcodedMessage + prompt }, // Concatenate hardcoded message with the prompt
               logs: true,
               onQueueUpdate: (update) => {
                 if (update.status === "IN_PROGRESS") {
