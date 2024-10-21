@@ -31,12 +31,8 @@ export async function POST(request: Request) {
 
   // Set base URL based on environment
   const baseUrl = process.env.NODE_ENV === 'production' 
-    // for development
-    //? 'https://comic-strip-generator-rho.vercel.app' 
-    // for production
-    ? 'https://comic-strip-generator-topaz.vercel.app'
-    // for testing
-    : 'http://localhost:3000';
+                ? 'https://comic-strip-generator-rho.vercel.app' 
+                : 'http://localhost:3000';
 
   try {
     // Continue generating and adding to prompts list until it reaches 6 items
