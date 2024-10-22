@@ -18,7 +18,7 @@ export async function POST(request: Request) {
   }
 
   // Initialize the messages based on whether the prompts list is empty
-  let prompts: string[] = [];
+  const prompts: string[] = [];
   let messages: { role: string; content: string }[] = prompts.length === 0 ? [
     { 
       role: "user", 
