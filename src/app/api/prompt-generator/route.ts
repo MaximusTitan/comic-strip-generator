@@ -1,11 +1,20 @@
 // /app/api/prompt-generator/route.ts
 import { NextResponse } from "next/server";
+import { currentUser } from "@clerk/nextjs/server";
 
 export async function POST(request: Request) {
   const { prompt } = await request.json(); // Removed type from destructuring
 
   if (!prompt) {
     return NextResponse.json({ message: "Prompt is required" }, { status: 400 });
+  }
+
+  //Retrieve the user's ID from the request
+  const user = await currentUser();
+  const userId = user?.id;
+
+  if (!userId) {
+    return NextResponse.json({ message: "Unauthorized: No user ID found" }, { status: 401 });
   }
 
   // Initialize the messages based on whether the prompts list is empty

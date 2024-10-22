@@ -1,5 +1,6 @@
 // /app/api/image-generator/route.ts
 import { NextResponse } from "next/server";
+import { currentUser } from "@clerk/nextjs/server";
 import * as fal from "@fal-ai/serverless-client";
 
 fal.config({
@@ -16,6 +17,14 @@ export async function POST(request: Request) {
 
       if (!prompts || !Array.isArray(prompts) || prompts.length === 0) {
         return NextResponse.json({ message: "Image prompts are required" }, { status: 400 });
+      }
+
+      //Retrieve the user's ID from the request
+      const user = await currentUser();
+      const userId = user?.id;
+
+      if (!userId) {
+        return NextResponse.json({ message: "Unauthorized: No user ID found" }, { status: 401 });
       }
 
       // Loop through the list of prompts and generate images for each one
