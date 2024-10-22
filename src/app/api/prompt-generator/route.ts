@@ -1,8 +1,6 @@
 // /app/api/prompt-generator/route.ts
 import { NextResponse } from "next/server";
 
-const prompts: string[] = []; // Define the prompts list
-
 export async function POST(request: Request) {
   const { prompt } = await request.json(); // Removed type from destructuring
 
@@ -11,6 +9,7 @@ export async function POST(request: Request) {
   }
 
   // Initialize the messages based on whether the prompts list is empty
+  let prompts: string[] = [];
   let messages: { role: string; content: string }[] = prompts.length === 0 ? [
     { 
       role: "user", 
