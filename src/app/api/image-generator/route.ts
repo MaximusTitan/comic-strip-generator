@@ -1,5 +1,6 @@
 // /app/api/image-generator/route.ts
 import { NextResponse } from "next/server";
+import { currentUser } from "@clerk/nextjs/server";
 import * as fal from "@fal-ai/serverless-client";
 
 fal.config({
@@ -18,11 +19,19 @@ export async function POST(request: Request) {
         return NextResponse.json({ message: "Image prompts are required" }, { status: 400 });
       }
 
+      //Retrieve the user's ID from the request
+      const user = await currentUser();
+      const userId = user?.id;
+
+      if (!userId) {
+        return NextResponse.json({ message: "Unauthorized: No user ID found" }, { status: 401 });
+      }
+
       // Loop through the list of prompts and generate images for each one
       const generatedImages = await Promise.all(
         prompts.map(async (prompt) => {
           try {
-            const hardcodedMessage = "You're a comic strip artist. Your job is to generate a comic-styled image on the following prompt: "; // Define your hardcoded message
+            const hardcodedMessage = "Generate an anime-style comic effectimage on the following prompt: "; // Define your hardcoded message
             const result: ImageResult = await fal.subscribe("fal-ai/flux/schnell", {
               input: { prompt: hardcodedMessage + prompt }, // Concatenate hardcoded message with the prompt
               logs: true,
