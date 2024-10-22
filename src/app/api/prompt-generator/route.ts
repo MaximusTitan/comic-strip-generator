@@ -31,7 +31,7 @@ export async function POST(request: Request) {
 
   // Set base URL based on environment
   const baseUrl = process.env.NODE_ENV === 'production' 
-    ? 'https://comic-strip-generator-topaz.vercel.app' 
+    ? 'https://app.comicgen.in/' 
     : 'http://localhost:3000';
 
   try {
