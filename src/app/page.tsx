@@ -85,8 +85,24 @@ export default function Home() {
     }
   };
 
+  
+  // Placeholder for saveScreenshotData function
+  const saveScreenshotData = async (userId: string | null | undefined, prompt: string, screenshotUrl: string) => {
+    if (!userId) {
+      console.error("No user ID provided, cannot save data.");
+      return;
+    }
+
+    const { error } = await supabase
+      .from('comics')
+      .insert([{ user_id: userId, prompt, screenshot_url: screenshotUrl }]);
+    if (error) {
+      console.error('Error saving screenshot data:', error);
+    }
+  };
+
   const takeScreenshot = async () => {
-    if (imageContainerRef.current) {
+    if (imageContainerRef.current && userId) {
       const canvas = await html2canvas(imageContainerRef.current, {
         scale: 2,
         useCORS: true,
@@ -184,15 +200,3 @@ export default function Home() {
     </>
   );
 }
-
-// Placeholder for saveScreenshotData function
-const saveScreenshotData = async (userId: string, prompt: string, screenshotUrl: string) => {
-  // Implement the logic to save the screenshot data to Supabase
-  // Example:
-   const { error } = await supabase
-     .from('comics')
-     .insert([{ user_id: userId, prompt, screenshot_url: screenshotUrl }]);
-   if (error) {
-     console.error('Error saving screenshot data:', error);
-   }
-};
