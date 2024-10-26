@@ -23,12 +23,13 @@ export default function Home() {
 
   const [prompt, setPrompt] = useState('');
   const [imageUrls, setImageUrls] = useState<string[]>([]);
+  const [imgDesc, setImgDesc] = useState<string[]>([]);
   const [loading, setLoading] = useState(false);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
   const imageContainerRef = useRef<HTMLDivElement>(null);
 
   const handleHistoryClick = () => {
-    router.push('/comics-history'); // Replace with the path to your comics history page
+    router.push('/comics-history');
   };
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -47,6 +48,7 @@ export default function Home() {
       const data = await response.json();
       if (response.ok) {
         const prompts = data.prompts;
+        const descriptions = Object.values(data.img_desc); // Extract the descriptions
 
         const imageResponse = await fetch('/api/image-generator', {
           method: 'POST',
@@ -60,6 +62,7 @@ export default function Home() {
         if (imageResponse.ok) {
           const { imageUrls } = imageData;
           setImageUrls(imageUrls);
+          setImgDesc(descriptions as string[]); // Save descriptions in the state
         } else {
           console.error('Error from image-generator:', imageData.message);
         }
@@ -85,8 +88,6 @@ export default function Home() {
     }
   };
 
-  
-  // Placeholder for saveScreenshotData function
   const saveScreenshotData = async (userId: string | null | undefined, prompt: string, screenshotUrl: string) => {
     if (!userId) {
       console.error("No user ID provided, cannot save data.");
@@ -111,7 +112,7 @@ export default function Home() {
       const screenshotUrl = canvas.toDataURL("image/png");
 
       // Save to Supabase
-      await saveScreenshotData(userId, prompt, screenshotUrl); // Ensure this function is defined or imported
+      await saveScreenshotData(userId, prompt, screenshotUrl);
     }
   };
 
@@ -134,8 +135,8 @@ export default function Home() {
       </Head>
       <div className="flex min-h-screen bg-cover bg-center" style={{ backgroundImage: "url('/images/bg3.jpg')" }}>
         {/* Sidebar */}
-        <div className="w-[5%] p-4 bg-black bg-opacity-50 text-white flex flex-col items-center justify-center">
-          <button onClick={handleHistoryClick} className="flex flex-col items-center">
+        <div className="fixed h-full w-[5%] p-4 bg-black bg-opacity-50 text-white flex flex-col items-center justify-center">
+          <button onClick={handleHistoryClick} className="fixed top-1/2 transform -translate-y-1/2 flex flex-col items-center">
             <svg xmlns="http://www.w3.org/2000/svg" className="h-8 w-8 mb-2" fill="none" viewBox="0 0 24 24" stroke="currentColor">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 8v4l3 3m6 5a9 9 0 11-18 0 9 9 0 0118 0z" />
             </svg>
@@ -144,14 +145,14 @@ export default function Home() {
         </div>
 
         {/* Left panel */}
-        <div className="w-[35%] p-4 flex flex-col items-center border-r-4 border-black bg-white bg-opacity-10">
+        <div className="flex-grow w-[35%] p-4 flex flex-col items-center border-r-4 border-black bg-white bg-opacity-10">
           {imageUrls.length > 0 ? (
             <h1 className="text-3xl font-bold text-white text-center mb-4" style={{ fontFamily: 'Bangers, cursive', textShadow: '2px 2px 0 #000' }}>
               Comic Strip Generator
             </h1>
           ) : null}
-          <div className="pt-[40%] w-full flex justify-center">
-            <form onSubmit={handleSubmit} className="w-full max-w-sm bg-white p-4 rounded-lg shadow-lg border-4 border-black">
+          <div className="pt-[40%] w-full flex justify-center mx-auto">
+            <form onSubmit={handleSubmit} className="w-full max-w-sm bg-white p-4 rounded-lg shadow-lg border-4 border-black ml-16">
               <div className="flex flex-col space-y-2">
                 <Textarea
                   ref={textareaRef}
@@ -170,7 +171,7 @@ export default function Home() {
         </div>
 
         {/* Right panel */}
-        <div className="w-[58%] p-[2%] relative bg-white bg-opacity-10 flex flex-col items-center" style={{ height: '100vh' }}>
+        <div className="w-[58%] p-[2%] relative bg-white bg-opacity-10 flex flex-col items-center min-h-screen">
           {imageUrls.length === 0 && (
             <div className="flex flex-col items-center justify-center pt-[22%]">
               <div className="bg-black bg-opacity-40 p-5">
@@ -184,18 +185,23 @@ export default function Home() {
           )}
           <div ref={imageContainerRef} className="grid grid-cols-2 grid-rows-3 gap-[4%] h-full">
             {imageUrls.map((url, index) => (
-              <div key={index} className="bg-white rounded-lg flex items-center justify-center border-4 border-black shadow-lg transform transition hover:scale-105">
+              <div key={index} className="bg-white rounded-lg flex flex-col items-center justify-start border-4 border-black shadow-lg transform transition hover:scale-105 overflow-hidden">
                 <Image 
                   src={url} 
                   alt={`Panel ${index + 1}`} 
                   width={500} 
                   height={500} 
-                  className="max-w-full max-h-full rounded"
+                  className="w-full h-auto rounded"
+                  style={{ objectFit: 'cover', objectPosition: 'top' }}
                 />
+                <div className="mt-2 flex items-center justify-center text-black font-bold p-2 w-full min-h-[0px]" style={{ paddingTop: '20px', paddingBottom: '20px' }}> 
+                  {imgDesc[index]} {/* Display description from imgDesc */}
+                </div>
               </div>
             ))}
           </div>
         </div>
+
       </div>
     </>
   );
