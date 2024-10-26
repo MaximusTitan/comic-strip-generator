@@ -59,6 +59,41 @@ export async function POST(request: Request) {
     const prompts = Object.values(jsonResponse);
     console.log("Prompts List:", prompts);
 
+    // *** New Block: Generate one-line descriptions for each prompt ***
+    const descriptionMessages = [
+      {
+        role: "user",
+        content: `Based on the following prompts, generate a JSON object with keys in the format "Scene N" (where N is a number from 1 to 6), and provide a very short, one-line description for each scene. The descriptions should be concise and to the point. Here are the prompts: ${JSON.stringify(prompts)}`,
+      },
+    ];
+
+    const descriptionResponse = await fetch("https://api.openai.com/v1/chat/completions", {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        Authorization: `Bearer ${process.env.OPENAI_API_KEY}`,
+      },
+      body: JSON.stringify({
+        model,
+        messages: descriptionMessages,
+        max_tokens: 500, // Adjust as needed
+        temperature: 0.5,
+      }),
+    });
+
+    const descData = await descriptionResponse.json();
+    const descResult = descData.choices?.[0]?.message?.content?.trim();
+
+    // Parse the description response into JSON format
+    let img_desc;
+    try {
+      img_desc = JSON.parse(descResult);
+      console.log("Image Descriptions:", img_desc);
+    } catch (error) {
+      throw new Error("Failed to parse descriptions as JSON. Ensure the response is in the correct format.");
+    }
+    // *** End of New Block ***
+
     // Send the list of prompts to the image-generator
     //const baseUrl = process.env.NODE_ENV === 'production' 
     //  ? 'https://comic-strip-generator-rho.vercel.app/' 
@@ -77,8 +112,8 @@ export async function POST(request: Request) {
       body: JSON.stringify({ prompts }), // Send the list of values
     });
 
-    // Return the prompts list
-    return NextResponse.json({ result: jsonResponse, prompts }, { status: 200 });
+    // Return the prompts list and image descriptions
+    return NextResponse.json({ result: jsonResponse, prompts, img_desc }, { status: 200 });
 
   } catch (error) {
     const errorMessage = (error as Error).message;
