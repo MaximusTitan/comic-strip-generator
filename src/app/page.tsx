@@ -25,6 +25,7 @@ export default function Home() {
   const [imageUrls, setImageUrls] = useState<string[]>([]);
   const [imgDesc, setImgDesc] = useState<string[]>([]);
   const [loading, setLoading] = useState(false);
+  const [credits, setCredits] = useState(18); // Default to max credits
   const textareaRef = useRef<HTMLTextAreaElement>(null);
   const imageContainerRef = useRef<HTMLDivElement>(null);
 
@@ -32,10 +33,24 @@ export default function Home() {
     router.push('/comics-history');
   };
 
+  const saveCreditRecord = async () => {
+    if (!userId) return;
+  
+    const today = new Date().toISOString().split('T')[0];
+  
+    const { error } = await supabase
+      .from('comics')
+      .insert([{ user_id: userId, created_at: today, prompt }]);
+  
+    if (error) {
+      console.error("Error saving credit record:", error);
+    }
+  };
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setLoading(true);
-
+  
     try {
       const response = await fetch('/api/prompt-generator', {
         method: 'POST',
@@ -44,12 +59,12 @@ export default function Home() {
         },
         body: JSON.stringify({ prompt }),
       });
-
+  
       const data = await response.json();
       if (response.ok) {
         const prompts = data.prompts;
-        const descriptions = Object.values(data.img_desc); // Extract the descriptions
-
+        const descriptions = Object.values(data.img_desc);
+  
         const imageResponse = await fetch('/api/image-generator', {
           method: 'POST',
           headers: {
@@ -57,12 +72,17 @@ export default function Home() {
           },
           body: JSON.stringify({ prompts }),
         });
-
+  
         const imageData = await imageResponse.json();
         if (imageResponse.ok) {
           const { imageUrls } = imageData;
           setImageUrls(imageUrls);
-          setImgDesc(descriptions as string[]); // Save descriptions in the state
+          setImgDesc(descriptions as string[]);
+  
+          // After generating, save the credit record and update credits
+          await saveCreditRecord();
+          const newCredits = await calculateCredits();
+          setCredits(newCredits);
         } else {
           console.error('Error from image-generator:', imageData.message);
         }
@@ -116,6 +136,37 @@ export default function Home() {
     }
   };
 
+  const calculateCredits = async () => {
+    if (!userId) return 18; // Default to 18 if userId is not set
+
+    const today = new Date().toISOString().split('T')[0];
+
+    const { count, error } = await supabase
+      .from('comics')
+      .select('id', { count: 'exact' })
+      .eq('user_id', userId)
+      .eq('created_at', today);
+
+    if (error) {
+      console.error("Error fetching user records:", error);
+      return 18; // Return max credits on error
+    }
+
+    if (count === 0) return 18;
+    if (count === 1) return 12;
+    if (count === 2) return 6;
+    return 0;
+  };
+
+  useEffect(() => {
+    const fetchCredits = async () => {
+      const availableCredits = await calculateCredits();
+      setCredits(availableCredits);
+    };
+
+    fetchCredits();
+  }, [userId]); // Run whenever `userId` changes
+
   useEffect(() => {
     if (imageUrls.length > 0) {
       takeScreenshot();
@@ -165,6 +216,9 @@ export default function Home() {
                 <Button type="submit" className="w-full bg-primary hover:bg-primary-foreground text-white font-bold py-2 px-4 rounded-full border-2 border-black transform transition hover:scale-105">
                   Generate Comic!
                 </Button>
+                <div className="text-black font" style={{ fontSize: '16px' }}>
+                  Credits: {credits}/18
+                </div>
               </div>
             </form>
           </div>
