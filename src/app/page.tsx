@@ -49,6 +49,12 @@ export default function Home() {
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+
+    if (credits === 0) {
+      alert('Out of credits');
+      return; // Stop further execution
+    }
+
     setLoading(true);
   
     try {
