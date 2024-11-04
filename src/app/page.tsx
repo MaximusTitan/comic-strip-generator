@@ -25,7 +25,7 @@ export default function Home() {
   const [imageUrls, setImageUrls] = useState<string[]>([]);
   const [imgDesc, setImgDesc] = useState<string[]>([]);
   const [loading, setLoading] = useState(false);
-  const [credits, setCredits] = useState(18); // Default to max credits
+  const [credits, setCredits] = useState(18);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
   const imageContainerRef = useRef<HTMLDivElement>(null);
 
@@ -183,6 +183,15 @@ export default function Home() {
     adjustTextareaHeight();
   }, [prompt]);
 
+  const panelStyles = [
+    { gridArea: '1 / 1 / 2 / 3', height: '250px' }, // Panel 1 - Large left panel
+    { gridArea: '1 / 3 / 2 / 4', height: '250px' }, // Panel 2 - Small right panel
+    { gridArea: '2 / 1 / 3 / 2', height: '300px' }, // Panel 3 - Square left panel
+    { gridArea: '2 / 2 / 3 / 4', height: '300px' }, // Panel 4 - Large right panel
+    { gridArea: '3 / 1 / 4 / 3', height: '250px' }, // Panel 5 - Large bottom left panel
+    { gridArea: '3 / 3 / 4 / 4', height: '250px' }  // Panel 6 - Small bottom right panel
+  ];
+
   return (
     <>
       <Head>
@@ -230,9 +239,9 @@ export default function Home() {
           </div>
         </div>
 
-        {/* Right panel */}
+        {/* Right panel with new grid layout */}
         <div className="w-[58%] p-[2%] relative bg-white bg-opacity-10 flex flex-col items-center min-h-screen">
-          {imageUrls.length === 0 && (
+          {imageUrls.length === 0 ? (
             <div className="flex flex-col items-center justify-center pt-[22%]">
               <div className="bg-black bg-opacity-40 p-5">
                 <h1 className="text-6xl font-bold text-white text-center leading-tight" style={{ fontFamily: 'Bangers, cursive', textShadow: '2px 2px 0 #000' }}>
@@ -242,26 +251,40 @@ export default function Home() {
               </div>
               {loading && <LoadingSpinner />}
             </div>
-          )}
-          <div ref={imageContainerRef} className="grid grid-cols-2 grid-rows-3 gap-[4%] h-full">
-            {imageUrls.map((url, index) => (
-              <div key={index} className="bg-white rounded-lg flex flex-col items-center justify-start border-4 border-black shadow-lg transform transition hover:scale-105 overflow-hidden">
-                <Image 
-                  src={url} 
-                  alt={`Panel ${index + 1}`} 
-                  width={500} 
-                  height={500} 
-                  className="w-full h-auto rounded"
-                  style={{ objectFit: 'cover', objectPosition: 'top' }}
-                />
-                <div className="mt-2 flex items-center justify-center text-black font-bold p-2 w-full min-h-[0px]" style={{ paddingTop: '20px', paddingBottom: '20px' }}> 
-                  {imgDesc[index]} {/* Display description from imgDesc */}
-                </div>
+          ) : (
+            <div ref={imageContainerRef} className="w-full h-screen p-2">
+              <div className="grid grid-cols-3 gap-2" style={{ 
+                display: 'grid',
+                gridTemplateColumns: 'repeat(3, 1fr)',
+                gridTemplateRows: 'auto auto auto',
+                gap: '0rem',
+                height: '100%'
+              }}>
+                {imageUrls.map((url, index) => (
+                  <div
+                    key={index}
+                    className="bg-white border border-black shadow-lg overflow-hidden flex flex-col gap-0"
+                    style={panelStyles[index]}
+                  >
+                    <div className="relative flex-grow">
+                      <Image
+                        src={url}
+                        alt={`Panel ${index + 1}`}
+                        fill
+                        className="object-cover"
+                      />
+                    </div>
+                    <div className="p-1 bg-white">
+                      <p className="text-center text-sm font-medium">
+                        {imgDesc[index]}
+                      </p>
+                    </div>
+                  </div>
+                ))}
               </div>
-            ))}
-          </div>
+            </div>
+          )}
         </div>
-
       </div>
     </>
   );
