@@ -184,12 +184,12 @@ export default function Home() {
   }, [prompt]);
 
   const panelStyles = [
-    { gridArea: '1 / 1 / 2 / 3', height: '250px' }, // Panel 1 - Large left panel
-    { gridArea: '1 / 3 / 2 / 4', height: '250px' }, // Panel 2 - Small right panel
+    { gridArea: '1 / 1 / 2 / 3', height: '300px' }, // Panel 1 - Large left panel
+    { gridArea: '1 / 3 / 2 / 4', height: '300px' }, // Panel 2 - Small right panel
     { gridArea: '2 / 1 / 3 / 2', height: '300px' }, // Panel 3 - Square left panel
     { gridArea: '2 / 2 / 3 / 4', height: '300px' }, // Panel 4 - Large right panel
-    { gridArea: '3 / 1 / 4 / 3', height: '250px' }, // Panel 5 - Large bottom left panel
-    { gridArea: '3 / 3 / 4 / 4', height: '250px' }  // Panel 6 - Small bottom right panel
+    { gridArea: '3 / 1 / 4 / 3', height: '300px' }, // Panel 5 - Large bottom left panel
+    { gridArea: '3 / 3 / 4 / 4', height: '300px' }  // Panel 6 - Small bottom right panel
   ];
 
   return (
