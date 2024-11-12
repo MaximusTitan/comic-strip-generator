@@ -223,7 +223,7 @@ export default function Home() {
                   Generate Comic!
                 </Button>
                 <div className="text-black font" style={{ fontSize: '16px' }}>
-                  Credits: {credits}/18
+                  Credits: {credits}
                 </div>
               </div>
             </form>
