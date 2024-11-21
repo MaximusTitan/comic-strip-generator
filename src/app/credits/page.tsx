@@ -1,16 +1,3 @@
-// Define the response type expected by Razorpay
-interface RazorpayResponse {
-  razorpay_payment_id: string;
-  razorpay_order_id: string;
-  razorpay_signature: string;
-}
-
-declare global {
-  interface Window {
-    Razorpay: any; // You can replace `any` with the actual Razorpay class if available
-  }
-}
-
 "use client";
 
 import { useState, useEffect } from "react";
@@ -29,6 +16,19 @@ interface CreditInfo {
 
 interface Props {
   onUpdateCredits: (newCredits: number) => void;
+}
+
+// Define the response type expected by Razorpay
+interface RazorpayResponse {
+  razorpay_payment_id: string;
+  razorpay_order_id: string;
+  razorpay_signature: string;
+}
+
+declare global {
+  interface Window {
+    Razorpay: any; // You can replace `any` with the actual Razorpay class if available
+  }
 }
 
 export default function Component({ onUpdateCredits }: Props) {
