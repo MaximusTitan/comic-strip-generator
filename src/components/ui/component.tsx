@@ -48,6 +48,8 @@ const Component: React.FC<Props> = ({ onUpdateCredits }) => {
   const [calculatedCredits, setCalculatedCredits] = useState(0);
   const [userEmail, setUserEmail] = useState<string | null>(null);
   const [razorpayLoaded, setRazorpayLoaded] = useState(false);
+  const [errorMessage, setErrorMessage] = useState<string>("");
+  const [rechargeType, setRechargeType] = useState<"image">("image");
 
   const supabase = createClient();
   const RAZORPAY_KEY_ID = process.env.NEXT_PUBLIC_RAZORPAY_KEY_ID;
@@ -91,6 +93,29 @@ const Component: React.FC<Props> = ({ onUpdateCredits }) => {
 
     fetchCredits();
   }, [userId]);
+
+  // Calculate the credits the user will get based on the INR entered
+  useEffect(() => {
+    const amount = parseInt(rechargeAmount, 10);
+    if (!isNaN(amount)) {
+      let creditsToAdd = 0;
+      let errorMessage = "";
+      // Pricing structure for image credits only
+      if (rechargeType === "image") {
+        if (amount >= 1) { //set this to 10
+            creditsToAdd = Math.floor(amount / 1) * 1; // 1 credits for every ₹1
+        } else {
+          creditsToAdd = 0; // Show error message if below minimum
+          errorMessage = "Minimum recharge for images is ₹10";
+        }
+      }
+      setCalculatedCredits(creditsToAdd);
+      setErrorMessage(errorMessage);
+    } else {
+      setCalculatedCredits(0);
+      setErrorMessage("");
+    }
+  }, [rechargeAmount, rechargeType]);
 
   // Initiate Razorpay payment
   const initiatePayment = async () => {
