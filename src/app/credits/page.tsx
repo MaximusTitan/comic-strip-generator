@@ -9,16 +9,17 @@ import { Coins } from "lucide-react";
 import { createClient } from "@/utils/supabase/client";
 import { useAuth } from "@clerk/nextjs";
 
+// Declare the Props type used by the component
+interface Props {
+  onUpdateCredits: (newCredits: number) => void;
+}
+
 interface CreditInfo {
   type: "image";
   amount: number;
 }
 
-interface Props {
-  onUpdateCredits: (newCredits: number) => void;
-}
-
-// Define the response type expected by Razorpay
+// Define Razorpay response types
 interface RazorpayResponse {
   razorpay_payment_id: string;
   razorpay_order_id: string;
@@ -28,7 +29,7 @@ interface RazorpayResponse {
 interface RazorpayCheckout {
   open: () => void;
   close: () => void;
-  on: (event: string, callback: (response: RazorpayResponse) => void) => void; // Update the callback type
+  on: (event: string, callback: (response: RazorpayResponse) => void) => void;
   paymentId: string;
 }
 
@@ -40,7 +41,7 @@ declare global {
   }
 }
 
-export default function Component({ onUpdateCredits }: Props) {
+const Component: React.FC<Props> = ({ onUpdateCredits }) => {
   const { userId } = useAuth();
   const [credits, setCredits] = useState<CreditInfo[]>([]);
   const [availableCredits, setAvailableCredits] = useState<number>(0);
@@ -52,7 +53,6 @@ export default function Component({ onUpdateCredits }: Props) {
   const [razorpayLoaded, setRazorpayLoaded] = useState(false);
 
   const supabase = createClient();
-
   const RAZORPAY_KEY_ID = process.env.NEXT_PUBLIC_RAZORPAY_KEY_ID;
 
   // Load Razorpay script
@@ -68,17 +68,18 @@ export default function Component({ onUpdateCredits }: Props) {
     loadRazorpayScript();
   }, []);
 
+  // Fetch credits on userId change
   useEffect(() => {
     const fetchCredits = async () => {
       if (!userId) return;
-  
-      try {  
+
+      try {
         const { data, error } = await supabase
           .from('users')
           .select('image_credits')
           .eq('id', userId)
           .single();
-  
+
         if (error) {
           console.error('Error fetching user credits:', error);
           setAvailableCredits(0);
@@ -91,10 +92,11 @@ export default function Component({ onUpdateCredits }: Props) {
         setAvailableCredits(0);
       }
     };
-  
+
     fetchCredits();
   }, [userId]);
 
+  // Initiate Razorpay payment
   const initiatePayment = async () => {
     if (!razorpayLoaded) {
       console.error("Razorpay SDK not loaded");
@@ -123,6 +125,7 @@ export default function Component({ onUpdateCredits }: Props) {
     rzp.open();
   };
 
+  // Handle recharge and update credits
   const handleRecharge = async (paymentResponse: RazorpayResponse) => {
     if (!userEmail || calculatedCredits <= 0) return;
 
@@ -199,4 +202,6 @@ export default function Component({ onUpdateCredits }: Props) {
       </div>
     </div>
   );
-}
+};
+
+export default Component;
