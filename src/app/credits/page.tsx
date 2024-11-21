@@ -28,7 +28,7 @@ interface RazorpayResponse {
 interface RazorpayCheckout {
   open: () => void;
   close: () => void;
-  on: (event: string, callback: Function) => void;
+  on: (event: string, callback: (response: RazorpayResponse) => void) => void; // Update the callback type
   paymentId: string;
 }
 
