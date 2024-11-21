@@ -2,17 +2,10 @@
 
 import { useState, useEffect } from "react";
 import { Button } from "@/components/ui/button";
-import {
-  Card,
-  CardContent,
-  CardDescription,
-  CardFooter,
-  CardHeader,
-  CardTitle,
-} from "@/components/ui/card";
+import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle, } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { Coins, Image } from "lucide-react";
+import { Coins } from "lucide-react";
 import { createClient } from "@/utils/supabase/client";
 
 interface CreditInfo {
@@ -26,6 +19,7 @@ interface Props {
 
 export default function Component({ onUpdateCredits }: Props) {
   const [credits, setCredits] = useState<CreditInfo[]>([]);
+  const [availableCredits, setAvailableCredits] = useState<number>(0);
   const [rechargeType, setRechargeType] = useState<"image">("image");
   const [rechargeAmount, setRechargeAmount] = useState("");
   const [calculatedCredits, setCalculatedCredits] = useState(0);
@@ -68,6 +62,7 @@ export default function Component({ onUpdateCredits }: Props) {
           console.error("Error fetching user credits:", error.message);
         } else if (data) {
           setCredits([{ type: "image", amount: data.image_credits }]);
+          setAvailableCredits(data.image_credits);
         }
       }
     };
@@ -84,7 +79,7 @@ export default function Component({ onUpdateCredits }: Props) {
 
       // Pricing structure for image credits only
       if (rechargeType === "image") {
-        if (amount >= 10) {
+        if (amount >= 1) {
             creditsToAdd = Math.floor(amount / 10) * 6; // 6 credits for every ₹10
         } else {
           creditsToAdd = 0; // Show error message if below minimum
@@ -168,28 +163,16 @@ export default function Component({ onUpdateCredits }: Props) {
       return;
     }
 
-    // Save transaction to credit_transactions table
-    const transactionData = {
-      user_id: user.id,
-      amount: parseInt(rechargeAmount, 10),
-      transaction_type: rechargeType,
-      email: userEmail,
-    };
-
-    const { error: transactionError } = await supabase
-      .from("credit_transactions")
-      .insert([transactionData]);
-
-    if (transactionError) {
-      console.error("Error saving transaction:", transactionError.message);
-    } else {
-      console.log("Transaction saved successfully:", paymentResponse);
-    }
   };
 
   return (
     <div className="container mx-auto">
       <div className="flex items-center justify-center h-screen">
+        <div className="text-center mb-4"> {/* Centered text for available credits */}
+          <h2 className="text-lg font-bold">
+            Available Credits = {availableCredits} {/* Display available credits */}
+          </h2>
+        </div>
         <Card>
           <CardHeader>
             <CardTitle>Recharge Credits</CardTitle>

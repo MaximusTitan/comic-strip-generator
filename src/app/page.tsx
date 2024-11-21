@@ -10,6 +10,7 @@ import LoadingSpinner from "@/components/ui/LoadingSpinner";
 import Head from 'next/head';
 import html2canvas from 'html2canvas';
 import { supabase } from '../lib/supabaseClient'; 
+import { X } from "lucide-react";
 
 export default function Home() {
   const { userId } = useAuth();
@@ -26,6 +27,8 @@ export default function Home() {
   const [imgDesc, setImgDesc] = useState<string[]>([]);
   const [loading, setLoading] = useState(false);
   const [credits, setCredits] = useState(18); // Default to max credits
+  const [imageCredits, setImageCredits] = useState(0);
+  const [showModal, setShowModal] = useState(false); // State for modal visibility
   const textareaRef = useRef<HTMLTextAreaElement>(null);
   const imageContainerRef = useRef<HTMLDivElement>(null);
 
@@ -38,69 +41,80 @@ export default function Home() {
   
     const today = new Date().toISOString().split('T')[0];
   
-    const { error } = await supabase
+    const { data, error } = await supabase
       .from('comics')
-      .insert([{ user_id: userId, created_at: today, prompt }]);
+      .insert([{ user_id: userId, created_at: today, prompt }])
+      .select();
   
     if (error) {
       console.error("Error saving credit record:", error);
     }
+    return data?.[0]?.id;
   };
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-
-    if (credits === 0) {
-      alert('Out of credits');
-      return; // Stop further execution
+  
+    if (credits === 0 && imageCredits === 0) {
+      setShowModal(true); // Show insufficient credits modal
+      return;
     }
-
+  
     setLoading(true);
   
     try {
-      const response = await fetch('/api/prompt-generator', {
+      // Generate prompts
+      const promptResponse = await fetch('/api/prompt-generator', {
         method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
+        headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ prompt }),
       });
   
-      const data = await response.json();
-      if (response.ok) {
-        const prompts = data.prompts;
-        const descriptions = Object.values(data.img_desc);
+      const promptData = await promptResponse.json();
+      if (!promptResponse.ok) throw new Error(promptData.message);
   
-        const imageResponse = await fetch('/api/image-generator', {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-          },
-          body: JSON.stringify({ prompts }),
-        });
+      // Generate images
+      const imageResponse = await fetch('/api/image-generator', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ prompts: promptData.prompts }),
+      });
   
-        const imageData = await imageResponse.json();
-        if (imageResponse.ok) {
-          const { imageUrls } = imageData;
-          setImageUrls(imageUrls);
-          setImgDesc(descriptions as string[]);
+      const imageData = await imageResponse.json();
+      if (!imageResponse.ok) throw new Error(imageData.message);
   
-          // After generating, save the credit record and update credits
-          await saveCreditRecord();
-          const newCredits = await calculateCredits();
-          setCredits(newCredits);
-        } else {
-          console.error('Error from image-generator:', imageData.message);
+      setImageUrls(imageData.imageUrls);
+      setImgDesc(Object.values(promptData.img_desc));
+  
+      // Deduct credits
+      if (credits > 0) {
+        setCredits((prev) => prev - 6); // Deduct daily credits
+      } else if (imageCredits > 0) {
+        const newImageCredits = imageCredits - 6; // Deduct 6 from imageCredits
+        setImageCredits(newImageCredits);
+  
+        // Update imageCredits in Supabase
+        const { error } = await supabase
+          .from('users')
+          .update({ image_credits: newImageCredits })
+          .eq('id', userId);
+  
+        if (error) {
+          console.error('Error updating image credits in Supabase:', error);
         }
-      } else {
-        console.error('Error from prompt-generator:', data.message);
       }
+  
+      // Save record
+      const recordId = await saveCreditRecord();
+      if (recordId) await takeScreenshot(recordId);
     } catch (error) {
-      console.error('Error submitting prompt:', error);
+      console.error('Error generating comic:', error);
     } finally {
       setLoading(false);
     }
   };
+  
+  
 
   const handleTextareaChange = (e: React.ChangeEvent<HTMLTextAreaElement>) => {
     setPrompt(e.target.value);
@@ -114,21 +128,18 @@ export default function Home() {
     }
   };
 
-  const saveScreenshotData = async (userId: string | null | undefined, prompt: string, screenshotUrl: string) => {
-    if (!userId) {
-      console.error("No user ID provided, cannot save data.");
-      return;
-    }
-
+  const saveScreenshotData = async (recordId: string, screenshotUrl: string) => {
     const { error } = await supabase
       .from('comics')
-      .insert([{ user_id: userId, prompt, screenshot_url: screenshotUrl }]);
+      .update({ screenshot_url: screenshotUrl }) // Only update screenshot_url
+      .eq('id', recordId); // Update the specific record by ID
+
     if (error) {
       console.error('Error saving screenshot data:', error);
     }
   };
 
-  const takeScreenshot = async () => {
+  const takeScreenshot = async (recordId: string) => {
     if (imageContainerRef.current && userId) {
       const canvas = await html2canvas(imageContainerRef.current, {
         scale: 2,
@@ -138,50 +149,78 @@ export default function Home() {
       const screenshotUrl = canvas.toDataURL("image/png");
 
       // Save to Supabase
-      await saveScreenshotData(userId, prompt, screenshotUrl);
+      await saveScreenshotData(recordId, screenshotUrl);
     }
   };
 
-  const calculateCredits = async () => {
-    if (!userId) return 18; // Default to 18 if userId is not set
-
+  const calculateDailyCredits = async (userId: string): Promise<number> => {
+    if (!userId) return 18; //set back to 18
+  
     const today = new Date().toISOString().split('T')[0];
-
+  
     const { count, error } = await supabase
       .from('comics')
       .select('id', { count: 'exact' })
       .eq('user_id', userId)
       .eq('created_at', today);
-
+  
     if (error) {
-      console.error("Error fetching user records:", error);
-      return 18; // Return max credits on error
+      console.error('Error fetching user records:', error);
+      return 18; //set back to 18 // Default to max credits on error
     }
-
-    if (count === 0) return 18;
-    if (count === 1) return 12;
-    if (count === 2) return 6;
-    return 0;
+  
+    // Return credit values based on the count
+    const creditMapping = [18, 12, 6, 0]; //set back to 18
+    return creditMapping[count??0] ?? 0;
   };
-
+  
   useEffect(() => {
     const fetchCredits = async () => {
-      const availableCredits = await calculateCredits();
-      setCredits(availableCredits);
+      if (!userId) return;
+  
+      try {
+        // Calculate daily credits
+        const dailyCredits = await calculateDailyCredits(userId);
+        console.log('Daily Credits:', dailyCredits);
+        setCredits(dailyCredits);
+  
+        // Fetch image credits from Supabase
+        const { data, error } = await supabase
+          .from('users')
+          .select('image_credits')
+          .eq('id', userId)
+          .single(); // Use single() for a single record
+  
+        if (error) {
+          console.error('Error fetching user credits:', error);
+          setImageCredits(0);
+        } else {
+          console.log('Fetched Image Credits:', data?.image_credits);
+          setImageCredits(data?.image_credits || 0); // Default to 0 if undefined
+        }
+      } catch (err) {
+        console.error('Unexpected error in fetchCredits:', err);
+        setImageCredits(0);
+      }
     };
-
+  
     fetchCredits();
-  }, [userId]); // Run whenever `userId` changes
-
-  useEffect(() => {
-    if (imageUrls.length > 0) {
-      takeScreenshot();
-    }
-  }, [imageUrls]);
-
+  }, [userId]);  
+  
+  
   useEffect(() => {
     adjustTextareaHeight();
   }, [prompt]);
+
+  // Function to handle modal close
+  const handleCloseModal = () => {
+    setShowModal(false);
+  };
+
+  // Function to handle redirect to credits page
+  const handleBuyCredits = () => {
+    router.push('/credits');
+  };
 
   return (
     <>
@@ -223,7 +262,9 @@ export default function Home() {
                   Generate Comic!
                 </Button>
                 <div className="text-black font" style={{ fontSize: '16px' }}>
-                  Credits: {credits}
+                  Daily Credits: {credits}
+                  <br />
+                  Additional Credits: {imageCredits}
                 </div>
               </div>
             </form>
@@ -262,6 +303,21 @@ export default function Home() {
           </div>
         </div>
 
+        {/* Modal for insufficient credits */}
+        {showModal && (
+          <div className="fixed inset-0 flex items-center justify-center bg-black bg-opacity-50 z-50">
+            <div className="bg-white p-6 rounded-lg shadow-lg text-center relative">
+              <button onClick={handleCloseModal} className="absolute top-2 right-2 text-gray-500 hover:text-black">
+                <X className="h-6 w-6" /> {/* X icon for closing the modal */}
+              </button>
+              <h2 className="text-lg mb-4">You do not have enough credits to generate a comic. <br />
+              Please recharge your credits.</h2>
+              <Button onClick={handleBuyCredits} className="bg-primary text-white">
+                Buy Credits
+              </Button>
+            </div>
+          </div>
+        )}
       </div>
     </>
   );
