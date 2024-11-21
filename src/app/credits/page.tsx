@@ -1,8 +1,21 @@
+// Define the response type expected by Razorpay
+interface RazorpayResponse {
+  razorpay_payment_id: string;
+  razorpay_order_id: string;
+  razorpay_signature: string;
+}
+
+declare global {
+  interface Window {
+    Razorpay: any; // You can replace `any` with the actual Razorpay class if available
+  }
+}
+
 "use client";
 
 import { useState, useEffect } from "react";
 import { Button } from "@/components/ui/button";
-import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle, } from "@/components/ui/card";
+import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Coins } from "lucide-react";
@@ -51,19 +64,18 @@ export default function Component({ onUpdateCredits }: Props) {
       if (!userId) return;
   
       try {  
-        // Fetch image credits from Supabase
         const { data, error } = await supabase
           .from('users')
           .select('image_credits')
           .eq('id', userId)
-          .single(); // Use single() for a single record
+          .single();
   
         if (error) {
           console.error('Error fetching user credits:', error);
           setAvailableCredits(0);
         } else {
           console.log('Fetched Image Credits:', data?.image_credits);
-          setAvailableCredits(data?.image_credits || 0); // Default to 0 if undefined
+          setAvailableCredits(data?.image_credits || 0);
         }
       } catch (err) {
         console.error('Unexpected error in fetchCredits:', err);
@@ -72,34 +84,8 @@ export default function Component({ onUpdateCredits }: Props) {
     };
   
     fetchCredits();
-  }, [userId]);  
+  }, [userId]);
 
-  // Calculate the credits the user will get based on the INR entered
-  useEffect(() => {
-    const amount = parseInt(rechargeAmount, 10);
-    if (!isNaN(amount)) {
-      let creditsToAdd = 0;
-      let errorMessage = "";
-
-      // Pricing structure for image credits only
-      if (rechargeType === "image") {
-        if (amount >= 1) {
-            creditsToAdd = Math.floor(amount / 10) * 6; // 6 credits for every ₹10
-        } else {
-          creditsToAdd = 0; // Show error message if below minimum
-          errorMessage = "Minimum recharge for images is ₹10";
-        }
-      }
-
-      setCalculatedCredits(creditsToAdd);
-      setErrorMessage(errorMessage);
-    } else {
-      setCalculatedCredits(0);
-      setErrorMessage("");
-    }
-  }, [rechargeAmount, rechargeType]);
-
-  // Handle Razorpay payment
   const initiatePayment = async () => {
     if (!razorpayLoaded) {
       console.error("Razorpay SDK not loaded");
@@ -111,12 +97,12 @@ export default function Component({ onUpdateCredits }: Props) {
     if (!amountInPaise || amountInPaise <= 0) return;
 
     const options = {
-      key: RAZORPAY_KEY_ID, // Razorpay Key ID
+      key: RAZORPAY_KEY_ID,
       amount: amountInPaise,
       currency: "INR",
       name: "Credits Recharge",
       description: `Recharge for ${calculatedCredits} ${rechargeType} credits`,
-      handler: async (response: any) => {
+      handler: async (response: RazorpayResponse) => {
         await handleRecharge(response);
       },
       prefill: {
@@ -124,25 +110,20 @@ export default function Component({ onUpdateCredits }: Props) {
       },
     };
 
-    const rzp = new (window as any).Razorpay(options);
+    const rzp = new window.Razorpay(options); // Using Razorpay directly from window object
     rzp.open();
   };
 
-  // Handle recharge credits after successful payment
-  const handleRecharge = async (paymentResponse: any) => {
+  const handleRecharge = async (paymentResponse: RazorpayResponse) => {
     if (!userEmail || calculatedCredits <= 0) return;
 
-    const {
-      data: { user },
-      error: authError,
-    } = await supabase.auth.getUser();
+    const { data: { user }, error: authError } = await supabase.auth.getUser();
 
     if (authError || !user) {
       console.error("Error retrieving user:", authError?.message);
       return;
     }
 
-    // Update the credits in the local state and Supabase
     const updatedCredits = credits.map((credit) =>
       credit.type === rechargeType
         ? { ...credit, amount: credit.amount + calculatedCredits }
@@ -154,7 +135,6 @@ export default function Component({ onUpdateCredits }: Props) {
       image_credits: updatedCredits.find((c) => c.type === "image")?.amount || 0,
     };
 
-    // Call the onUpdateCredits function to sync credits
     onUpdateCredits(newCredits.image_credits);
 
     const { error: creditUpdateError } = await supabase
@@ -166,16 +146,13 @@ export default function Component({ onUpdateCredits }: Props) {
       console.error("Error updating credits:", creditUpdateError.message);
       return;
     }
-
   };
 
   return (
     <div className="container mx-auto">
       <div className="flex items-center justify-center h-screen">
-        <div className="absolute top-0 right-0 p-5"> {/* Positioned at the top right with padding */}
-          <h2 className="text-lg font-bold">
-            Available Credits = {availableCredits} {/* Display available credits */}
-          </h2>
+        <div className="absolute top-0 right-0 p-5">
+          <h2 className="text-lg">Available Credits = {availableCredits}</h2>
         </div>
         <Card>
           <CardHeader>
@@ -193,14 +170,13 @@ export default function Component({ onUpdateCredits }: Props) {
                   value={rechargeAmount}
                   onChange={(e) => setRechargeAmount(e.target.value)}
                 />
-                {rechargeAmount &&
-                  (errorMessage ? (
-                    <p className="text-sm text-red-500">{errorMessage}</p>
-                  ) : (
-                    <p className="text-sm text-muted-foreground">
-                      You will get {calculatedCredits} {rechargeType} credits
-                    </p>
-                  ))}
+                {rechargeAmount && (errorMessage ? (
+                  <p className="text-sm text-red-500">{errorMessage}</p>
+                ) : (
+                  <p className="text-sm text-muted-foreground">
+                    You will get {calculatedCredits} {rechargeType} credits
+                  </p>
+                ))}
               </div>
             </div>
           </CardContent>
