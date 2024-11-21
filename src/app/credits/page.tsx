@@ -25,9 +25,18 @@ interface RazorpayResponse {
   razorpay_signature: string;
 }
 
+interface RazorpayCheckout {
+  open: () => void;
+  close: () => void;
+  on: (event: string, callback: Function) => void;
+  paymentId: string;
+}
+
 declare global {
   interface Window {
-    Razorpay: any; // You can replace `any` with the actual Razorpay class if available
+    Razorpay: {
+      new (options: object): RazorpayCheckout;
+    };
   }
 }
 
