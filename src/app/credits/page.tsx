@@ -7,6 +7,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Coins } from "lucide-react";
 import { createClient } from "@/utils/supabase/client";
+import { useAuth } from "@clerk/nextjs";
 
 interface CreditInfo {
   type: "image";
@@ -18,6 +19,7 @@ interface Props {
 }
 
 export default function Component({ onUpdateCredits }: Props) {
+  const { userId } = useAuth();
   const [credits, setCredits] = useState<CreditInfo[]>([]);
   const [availableCredits, setAvailableCredits] = useState<number>(0);
   const [rechargeType, setRechargeType] = useState<"image">("image");
@@ -46,29 +48,31 @@ export default function Component({ onUpdateCredits }: Props) {
 
   useEffect(() => {
     const fetchCredits = async () => {
-      const {
-        data: { user },
-      } = await supabase.auth.getUser();
-
-      if (user && user.email) {
-        setUserEmail(user.email);
+      if (!userId) return;
+  
+      try {  
+        // Fetch image credits from Supabase
         const { data, error } = await supabase
-          .from("users")
-          .select("image_credits")
-          .eq("email", user.email)
-          .single();
-
+          .from('users')
+          .select('image_credits')
+          .eq('id', userId)
+          .single(); // Use single() for a single record
+  
         if (error) {
-          console.error("Error fetching user credits:", error.message);
-        } else if (data) {
-          setCredits([{ type: "image", amount: data.image_credits }]);
-          setAvailableCredits(data.image_credits);
+          console.error('Error fetching user credits:', error);
+          setAvailableCredits(0);
+        } else {
+          console.log('Fetched Image Credits:', data?.image_credits);
+          setAvailableCredits(data?.image_credits || 0); // Default to 0 if undefined
         }
+      } catch (err) {
+        console.error('Unexpected error in fetchCredits:', err);
+        setAvailableCredits(0);
       }
     };
-
+  
     fetchCredits();
-  }, [supabase]);
+  }, [userId]);  
 
   // Calculate the credits the user will get based on the INR entered
   useEffect(() => {
@@ -168,7 +172,7 @@ export default function Component({ onUpdateCredits }: Props) {
   return (
     <div className="container mx-auto">
       <div className="flex items-center justify-center h-screen">
-        <div className="text-center mb-4"> {/* Centered text for available credits */}
+        <div className="absolute top-0 right-0 p-5"> {/* Positioned at the top right with padding */}
           <h2 className="text-lg font-bold">
             Available Credits = {availableCredits} {/* Display available credits */}
           </h2>
