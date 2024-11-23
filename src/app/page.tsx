@@ -284,9 +284,9 @@ export default function Home() {
           </div>
         </div>
 
-        {/* Right panel with new grid layout */}
+        {/* Right panel */}
         <div className="w-[58%] p-[2%] relative bg-white bg-opacity-10 flex flex-col items-center min-h-screen">
-          {imageUrls.length === 0 ? (
+          {imageUrls.length === 0 && (
             <div className="flex flex-col items-center justify-center pt-[22%]">
               <div className="bg-black bg-opacity-40 p-5">
                 <h1 className="text-6xl font-bold text-white text-center leading-tight" style={{ fontFamily: 'Bangers, cursive', textShadow: '2px 2px 0 #000' }}>
