@@ -9,6 +9,15 @@ const config: Config = {
   ],
   theme: {
   	extend: {
+		animation: {
+			'page-flip': 'flip 0.6s ease-in-out',
+		  },
+		  keyframes: {
+			flip: {
+			  '0%': { transform: 'rotateY(0)' },
+			  '100%': { transform: 'rotateY(-180deg)' },
+			},
+		  },
   		colors: {
   			background: 'hsl(var(--background))',
   			foreground: 'hsl(var(--foreground))',

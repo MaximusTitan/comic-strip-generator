@@ -64,7 +64,7 @@ export default function ComicsHistory() {
   };
 
   return (
-    <div className="min-h-screen p-6 bg-cover bg-center" style={{ backgroundImage: "url('/images/bg1.jpg')" }}>
+    <div className="min-h-screen p-6 bg-black">
       <h1 className="text-4xl font-bold text-center mb-8 text-white" style={{ textShadow: '2px 2px 4px rgba(0,0,0,0.5)' }}>Comics History</h1>
       <div className="max-w-5xl mx-auto">
         {comics.length === 0 ? (
@@ -74,7 +74,7 @@ export default function ComicsHistory() {
             {comics.map((comic) => (
               <div 
                 key={comic.id} 
-                className="bg-white rounded-lg shadow-lg border overflow-hidden flex flex-col w-[100%] h-full cursor-pointer transition-transform duration-300 hover:scale-105" 
+                className="bg-black rounded-lg shadow-lg border overflow-hidden flex flex-col w-[100%] h-full cursor-pointer transition-transform duration-300 hover:scale-105" 
                 onClick={() => openImagePopup(comic)}
               >
                 <div className="flex flex-col items-stretch p-4 bg-primary text-white">

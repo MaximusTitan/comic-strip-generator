@@ -66,6 +66,80 @@ body {
     --chart-4: 280 65% 60%;
     --chart-5: 340 75% 55%;
   }
+  .page-turn-container {
+    perspective: 1000px;
+  }
+  
+  .page-turn {
+    transform-style: preserve-3d;
+    transition: transform 0.6s ease;
+  }
+  
+  @keyframes pageTurnRight {
+    0% {
+      transform: perspective(1000px) rotateY(0);
+    }
+    100% {
+      transform: perspective(1000px) rotateY(-90deg);
+    }
+  }
+  
+  @keyframes pageTurnLeft {
+    0% {
+      transform: perspective(1000px) rotateY(0);
+    }
+    100% {
+      transform: perspective(1000px) rotateY(90deg);
+    }
+  }
+  
+  .animate-page-turn-right {
+    animation: pageTurnRight 0.3s ease-in-out;
+  }
+  
+  .animate-page-turn-left {
+    animation: pageTurnLeft 0.3s ease-in-out;
+  }
+
+  .page-turn.flip-right {
+    transform: rotateY(-180deg);
+  }
+  
+  .page-turn.flip-left {
+    transform: rotateY(180deg);
+  }
+  
+  .page-front, .page-back {
+    backface-visibility: hidden;
+    position: absolute;
+    width: 100%;
+    height: 100%;
+  }
+  
+  .page-back {
+    transform: rotateY(180deg);
+  }
+
+  .perspective-1000 {
+    perspective: 1000px;
+  }
+  
+  .transform-style-3d {
+    transform-style: preserve-3d;
+  }
+  
+  .backface-hidden {
+    backface-visibility: hidden;
+  }
+  
+  .rotate-y-180 {
+    transform: rotateY(180deg);
+  }
+  
+  .-rotate-y-180 {
+    transform: rotateY(-180deg);
+  }
+  
 }
 
 @layer base {

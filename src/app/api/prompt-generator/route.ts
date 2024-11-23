@@ -23,12 +23,12 @@ export async function POST(request: Request) {
   const messages = [
     {
       role: "user",
-      content: `Based on the following prompt, generate 6 prompts for images that would describe a comic sequence in a progressive manner. Each prompt should depict a scene from the story and be returned as a JSON object with keys in the format "Scene N" (where N is a number from 1 to 6). The values should describe the scene: ${prompt}`,
+      content: `Based on the following prompt, generate 10 prompts for images that would describe a comic sequence in a progressive manner. Each prompt should depict a scene from the story and be returned as a JSON object with keys in the format "Scene N" (where N is a number from 1 to 10). The values should describe the scene: ${prompt}`,
     },
   ];
 
   try {
-    // Make a single API call to OpenAI to generate all 6 prompts
+    // Make a single API call to OpenAI to generate all 10 prompts
     const response = await fetch("https://api.openai.com/v1/chat/completions", {
       method: "POST",
       headers: {
@@ -63,7 +63,7 @@ export async function POST(request: Request) {
     const descriptionMessages = [
       {
         role: "user",
-        content: `Based on the following prompts, generate a JSON object with keys in the format "Scene N" (where N is a number from 1 to 6), and provide a very short, one-line description for each scene. The descriptions should be concise and to the point. Here are the prompts: ${JSON.stringify(prompts)}`,
+        content: `Based on the following prompts, generate a JSON object with keys in the format "Scene N" (where N is a number from 1 to 10), and provide a very short, one-line description for each scene. The descriptions should be concise and to the point. Here are the prompts: ${JSON.stringify(prompts)}`,
       },
     ];
 
