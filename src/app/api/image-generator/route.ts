@@ -33,7 +33,9 @@ export async function POST(request: Request) {
           try {
             const hardcodedMessage = "Generate an anime-style comic effectimage on the following prompt: "; // Define your hardcoded message
             const result: ImageResult = await fal.subscribe("fal-ai/flux/schnell", {
-              input: { prompt: hardcodedMessage + prompt }, // Concatenate hardcoded message with the prompt
+              input: { prompt: hardcodedMessage + prompt, 
+              image_size: "landscape_16_9", 
+              }, // Concatenate hardcoded message with the prompt
               logs: true,
               onQueueUpdate: (update) => {
                 if (update.status === "IN_PROGRESS") {
