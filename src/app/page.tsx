@@ -10,6 +10,7 @@ import LoadingSpinner from "@/components/ui/LoadingSpinner";
 import Head from 'next/head';
 import html2canvas from 'html2canvas';
 import { supabase } from '../lib/supabaseClient'; 
+import { X } from 'lucide-react';
 
 export default function Home() {
   const { userId } = useAuth();
@@ -25,7 +26,12 @@ export default function Home() {
   const [imageUrls, setImageUrls] = useState<string[]>([]);
   const [imgDesc, setImgDesc] = useState<string[]>([]);
   const [loading, setLoading] = useState(false);
-  const [credits, setCredits] = useState(18);
+  const [credits, setCredits] = useState(60);
+  const [imageCredits, setImageCredits] = useState(0);
+  const [showModal, setShowModal] = useState(false);
+  const [currentImageIndex, setCurrentImageIndex] = useState(0);
+  const [isFlipping, setIsFlipping] = useState(false);
+  const [flipDirection, setFlipDirection] = useState<'left' | 'right'>('right');
   const textareaRef = useRef<HTMLTextAreaElement>(null);
   const imageContainerRef = useRef<HTMLDivElement>(null);
 
@@ -38,65 +44,71 @@ export default function Home() {
   
     const today = new Date().toISOString().split('T')[0];
   
-    const { error } = await supabase
+    const { data, error } = await supabase
       .from('comics')
-      .insert([{ user_id: userId, created_at: today, prompt }]);
+      .insert([{ user_id: userId, created_at: today, prompt }])
+      .select();
   
     if (error) {
       console.error("Error saving credit record:", error);
     }
+    return data?.[0]?.id;
   };
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-
-    if (credits === 0) {
-      alert('Out of credits');
-      return; // Stop further execution
+  
+    setImageUrls([]);
+  
+    if (credits === 0 && imageCredits === 0) {
+      setShowModal(true);
+      return;
     }
-
+  
     setLoading(true);
   
     try {
-      const response = await fetch('/api/prompt-generator', {
+      const promptResponse = await fetch('/api/prompt-generator', {
         method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
+        headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ prompt }),
       });
   
-      const data = await response.json();
-      if (response.ok) {
-        const prompts = data.prompts;
-        const descriptions = Object.values(data.img_desc);
+      const promptData = await promptResponse.json();
+      if (!promptResponse.ok) throw new Error(promptData.message);
   
-        const imageResponse = await fetch('/api/image-generator', {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-          },
-          body: JSON.stringify({ prompts }),
-        });
+      const imageResponse = await fetch('/api/image-generator', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ prompts: promptData.prompts }),
+      });
   
-        const imageData = await imageResponse.json();
-        if (imageResponse.ok) {
-          const { imageUrls } = imageData;
-          setImageUrls(imageUrls);
-          setImgDesc(descriptions as string[]);
+      const imageData = await imageResponse.json();
+      if (!imageResponse.ok) throw new Error(imageData.message);
   
-          // After generating, save the credit record and update credits
-          await saveCreditRecord();
-          const newCredits = await calculateCredits();
-          setCredits(newCredits);
-        } else {
-          console.error('Error from image-generator:', imageData.message);
+      setImageUrls(imageData.imageUrls);
+      setImgDesc(Object.values(promptData.img_desc));
+  
+      if (credits > 0) {
+        setCredits((prev) => prev - 6);
+      } else if (imageCredits > 0) {
+        const newImageCredits = imageCredits - 6;
+        setImageCredits(newImageCredits);
+  
+        const { error } = await supabase
+          .from('users')
+          .update({ image_credits: newImageCredits })
+          .eq('id', userId);
+  
+        if (error) {
+          console.error('Error updating image credits in Supabase:', error);
         }
-      } else {
-        console.error('Error from prompt-generator:', data.message);
       }
+  
+      const recordId = await saveCreditRecord();
+      if (recordId) await takeScreenshot(recordId);
     } catch (error) {
-      console.error('Error submitting prompt:', error);
+      console.error('Error generating comic:', error);
     } finally {
       setLoading(false);
     }
@@ -114,21 +126,18 @@ export default function Home() {
     }
   };
 
-  const saveScreenshotData = async (userId: string | null | undefined, prompt: string, screenshotUrl: string) => {
-    if (!userId) {
-      console.error("No user ID provided, cannot save data.");
-      return;
-    }
-
+  const saveScreenshotData = async (recordId: string, screenshotUrl: string) => {
     const { error } = await supabase
       .from('comics')
-      .insert([{ user_id: userId, prompt, screenshot_url: screenshotUrl }]);
+      .update({ screenshot_url: screenshotUrl })
+      .eq('id', recordId);
+
     if (error) {
       console.error('Error saving screenshot data:', error);
     }
   };
 
-  const takeScreenshot = async () => {
+  const takeScreenshot = async (recordId: string) => {
     if (imageContainerRef.current && userId) {
       const canvas = await html2canvas(imageContainerRef.current, {
         scale: 2,
@@ -137,60 +146,94 @@ export default function Home() {
 
       const screenshotUrl = canvas.toDataURL("image/png");
 
-      // Save to Supabase
-      await saveScreenshotData(userId, prompt, screenshotUrl);
+      await saveScreenshotData(recordId, screenshotUrl);
     }
   };
 
-  const calculateCredits = async () => {
-    if (!userId) return 18; // Default to 18 if userId is not set
-
+  const calculateDailyCredits = async (userId: string): Promise<number> => {
+    if (!userId) return 60;
+  
     const today = new Date().toISOString().split('T')[0];
-
+  
     const { count, error } = await supabase
       .from('comics')
       .select('id', { count: 'exact' })
       .eq('user_id', userId)
       .eq('created_at', today);
-
+  
     if (error) {
-      console.error("Error fetching user records:", error);
-      return 18; // Return max credits on error
+      console.error('Error fetching user records:', error);
+      return 18;
     }
-
-    if (count === 0) return 18;
-    if (count === 1) return 12;
-    if (count === 2) return 6;
-    return 0;
+  
+    const creditMapping = [60, 54, 48, 42, 36, 30, 24, 18, 12, 6, 0];
+    return creditMapping[count??0] ?? 0;
   };
-
+  
   useEffect(() => {
     const fetchCredits = async () => {
-      const availableCredits = await calculateCredits();
-      setCredits(availableCredits);
+      if (!userId) return;
+  
+      try {
+        const dailyCredits = await calculateDailyCredits(userId);
+        console.log('Daily Credits:', dailyCredits);
+        setCredits(dailyCredits);
+  
+        const { data, error } = await supabase
+          .from('users')
+          .select('image_credits')
+          .eq('id', userId)
+          .single();
+  
+        if (error) {
+          console.error('Error fetching user credits:', error);
+          setImageCredits(0);
+        } else {
+          console.log('Fetched Image Credits:', data?.image_credits);
+          setImageCredits(data?.image_credits || 0);
+        }
+      } catch (err) {
+        console.error('Unexpected error in fetchCredits:', err);
+        setImageCredits(0);
+      }
     };
-
+  
     fetchCredits();
-  }, [userId]); // Run whenever `userId` changes
-
-  useEffect(() => {
-    if (imageUrls.length > 0) {
-      takeScreenshot();
-    }
-  }, [imageUrls]);
-
+  }, [userId]);  
+  
   useEffect(() => {
     adjustTextareaHeight();
   }, [prompt]);
 
-  const panelStyles = [
-    { gridArea: '1 / 1 / 2 / 3', height: '250px' }, // Panel 1 - Large left panel
-    { gridArea: '1 / 3 / 2 / 4', height: '250px' }, // Panel 2 - Small right panel
-    { gridArea: '2 / 1 / 3 / 2', height: '300px' }, // Panel 3 - Square left panel
-    { gridArea: '2 / 2 / 3 / 4', height: '300px' }, // Panel 4 - Large right panel
-    { gridArea: '3 / 1 / 4 / 3', height: '250px' }, // Panel 5 - Large bottom left panel
-    { gridArea: '3 / 3 / 4 / 4', height: '250px' }  // Panel 6 - Small bottom right panel
-  ];
+  const handleCloseModal = () => {
+    setShowModal(false);
+  };
+
+  const handleBuyCredits = () => {
+    router.push('/credits');
+  };
+
+  const handleNextImage = () => {
+    if (currentImageIndex < imageUrls.length - 1) {
+      setFlipDirection('right');
+      setIsFlipping(true);
+      setTimeout(() => {
+        setCurrentImageIndex(prev => prev + 1);
+        setIsFlipping(false);
+      }, 300);
+    }
+  };
+
+  const handlePrevImage = () => {
+    if (currentImageIndex > 0) {
+      setFlipDirection('left');
+      setIsFlipping(true);
+      setTimeout(() => {
+        setCurrentImageIndex(prev => prev - 1);
+        setIsFlipping(false);
+      }, 300);
+    }
+  };
 
   return (
     <>
@@ -199,7 +242,7 @@ export default function Home() {
         <meta name="description" content="Create your own comic strips!" />
         <link href="https://fonts.googleapis.com/css2?family=Bangers&display=swap" rel="stylesheet" />
       </Head>
-      <div className="flex min-h-screen bg-cover bg-center" style={{ backgroundImage: "url('/images/bg3.jpg')" }}>
+      <div className="flex min-h-screen bg-black">
         {/* Sidebar */}
         <div className="fixed h-full w-[5%] p-4 bg-black bg-opacity-50 text-white flex flex-col items-center justify-center">
           <button onClick={handleHistoryClick} className="fixed top-1/2 transform -translate-y-1/2 flex flex-col items-center">
@@ -218,21 +261,23 @@ export default function Home() {
             </h1>
           ) : null}
           <div className="pt-[40%] w-full flex justify-center mx-auto">
-            <form onSubmit={handleSubmit} className="w-full max-w-sm bg-white p-4 rounded-lg shadow-lg border-4 border-black ml-16">
+            <form onSubmit={handleSubmit} className="w-full max-w-sm bg-black p-4 rounded-lg shadow-lg border-4 border-black ml-16">
               <div className="flex flex-col space-y-2">
                 <Textarea
                   ref={textareaRef}
                   placeholder="Enter your comic idea here..."
                   value={prompt}
                   onChange={handleTextareaChange}
-                  className="w-full min-h-[100px] resize-none border-2 border-black rounded font-sans"
+                  className="w-full min-h-[100px] resize-none border-2 border-black rounded font-sans text-white"
                   rows={3}
                 />
                 <Button type="submit" className="w-full bg-primary hover:bg-primary-foreground text-white font-bold py-2 px-4 rounded-full border-2 border-black transform transition hover:scale-105">
                   Generate Comic!
                 </Button>
-                <div className="text-black font" style={{ fontSize: '16px' }}>
-                  Credits: {credits}/18
+                <div className="text-white font" style={{ fontSize: '12px' }}>
+                  Daily Credits: {credits}
+                  <br />
+                  Additional Credits: {imageCredits}
                 </div>
               </div>
             </form>
@@ -251,40 +296,68 @@ export default function Home() {
               </div>
               {loading && <LoadingSpinner />}
             </div>
-          ) : (
-            <div ref={imageContainerRef} className="w-full h-screen p-2">
-              <div className="grid grid-cols-3 gap-2" style={{ 
-                display: 'grid',
-                gridTemplateColumns: 'repeat(3, 1fr)',
-                gridTemplateRows: 'auto auto auto',
-                gap: '0rem',
-                height: '100%'
-              }}>
-                {imageUrls.map((url, index) => (
-                  <div
-                    key={index}
-                    className="bg-white border border-black shadow-lg overflow-hidden flex flex-col gap-0"
-                    style={panelStyles[index]}
-                  >
-                    <div className="relative flex-grow">
-                      <Image
-                        src={url}
-                        alt={`Panel ${index + 1}`}
-                        fill
-                        className="object-cover"
-                      />
-                    </div>
-                    <div className="p-1 bg-white">
-                      <p className="text-center text-sm font-medium">
-                        {imgDesc[index]}
-                      </p>
-                    </div>
-                  </div>
-                ))}
+          )}
+          {imageUrls.length > 0 && (
+            <div ref={imageContainerRef} className="relative w-full h-full flex justify-center items-center overflow-hidden">
+              <div 
+                className={`w-4/5 h-4/5 relative ${
+                  isFlipping 
+                    ? flipDirection === 'right'
+                      ? 'animate-page-turn-right'
+                      : 'animate-page-turn-left'
+                    : ''
+                }`}
+              >
+                <Image 
+                  src={imageUrls[currentImageIndex]} 
+                  alt={`Panel ${currentImageIndex + 1}`} 
+                  layout="fill"
+                  objectFit="contain"
+                  className="rounded"
+                />
+                <div className="absolute bottom-0 left-0 right-0 bg-black bg-opacity-50 text-white p-4 text-center">
+                  {imgDesc[currentImageIndex]}
+                </div>
               </div>
+              {currentImageIndex < imageUrls.length - 1 && (
+                <button 
+                  onClick={handleNextImage}
+                  className="absolute right-0 top-1/2 transform -translate-y-1/2 bg-black bg-opacity-50 text-white p-2 rounded-l"
+                >
+                  <svg xmlns="http://www.w3.org/2000/svg" className="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
+                  </svg>
+                </button>
+              )}
+              {currentImageIndex > 0 && (
+                <button 
+                  onClick={handlePrevImage}
+                  className="absolute left-0 top-1/2 transform -translate-y-1/2 bg-black bg-opacity-50 text-white p-2 rounded-r"
+                >
+                  <svg xmlns="http://www.w3.org/2000/svg" className="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" />
+                  </svg>
+                </button>
+              )}
             </div>
           )}
         </div>
+
+        {/* Modal for insufficient credits */}
+        {showModal && (
+          <div className="fixed inset-0 flex items-center justify-center bg-black bg-opacity-50 z-50">
+            <div className="bg-white p-6 rounded-lg shadow-lg text-center relative">
+              <button onClick={handleCloseModal} className="absolute top-2 right-2 text-gray-500 hover:text-black">
+                <X className="h-6 w-6" />
+              </button>
+              <h2 className="text-lg mb-4">You do not have enough credits to generate a comic. <br />
+              Please recharge your credits.</h2>
+              <Button onClick={handleBuyCredits} className="bg-primary text-white">
+                Buy Credits
+              </Button>
+            </div>
+          </div>
+        )}
       </div>
     </>
   );
