@@ -7,10 +7,17 @@ import { ChevronLeft, ChevronRight } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 
+// Define a type for the comic data
+type ComicData = {
+  urls: string[];
+  descriptions: string[];
+  prompt: string;
+};
+
 export default function Generation() {
-  const [comicsData, setComicsData] = useState<any[]>([]); // Array of comics
-  const [currentImageIndices, setCurrentImageIndices] = useState<number[]>([]); // Track image indices for each comic
-  const [loading, setLoading] = useState(true);
+  const [comicsData, setComicsData] = useState<ComicData[]>([]);
+  const [currentImageIndices, setCurrentImageIndices] = useState<number[]>([]);
+  const [loading, setLoading] = useState<boolean>(true);
 
   useEffect(() => {
     const fetchAllImages = async () => {
@@ -25,9 +32,9 @@ export default function Generation() {
           return;
         }
 
-        const parsedData = data.map((comic) => {
-          let urls = [];
-          let descriptions = [];
+        const parsedData: ComicData[] = data.map((comic: any) => {
+          let urls: string[] = [];
+          let descriptions: string[] = [];
           try {
             urls = JSON.parse(comic.screenshot_url);
             descriptions = JSON.parse(comic.image_description);
@@ -43,7 +50,7 @@ export default function Generation() {
         });
 
         setComicsData(parsedData);
-        setCurrentImageIndices(new Array(parsedData.length).fill(0)); // Initialize image indices
+        setCurrentImageIndices(new Array(parsedData.length).fill(0));
       } catch (error) {
         console.error("Unexpected error:", error);
       } finally {
