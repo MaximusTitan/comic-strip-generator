@@ -7,10 +7,15 @@ import { ChevronLeft, ChevronRight } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 
-// Define a type for the comic data
 type ComicData = {
   urls: string[];
   descriptions: string[];
+  prompt: string;
+};
+
+type SupabaseComic = {
+  screenshot_url: string;
+  image_description: string;
   prompt: string;
 };
 
@@ -25,14 +30,14 @@ export default function Generation() {
         const { data, error } = await supabase
           .from("comics")
           .select("screenshot_url, image_description, prompt")
-          .order("created_at", { ascending: false });
+          .order("created_at", { ascending: false }) as { data: SupabaseComic[]; error: any };
 
         if (error) {
           console.error("Error fetching images:", error);
           return;
         }
 
-        const parsedData: ComicData[] = data.map((comic: any) => {
+        const parsedData: ComicData[] = data.map((comic) => {
           let urls: string[] = [];
           let descriptions: string[] = [];
           try {
@@ -43,7 +48,7 @@ export default function Generation() {
             descriptions = [comic.image_description];
           }
           return {
-            urls: urls.map((url: string) => (url.startsWith("http") ? url : `https://${url}`)),
+            urls: urls.map((url) => (url.startsWith("http") ? url : `https://${url}`)),
             descriptions,
             prompt: comic.prompt,
           };
