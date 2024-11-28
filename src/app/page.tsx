@@ -7,20 +7,12 @@ import { Textarea } from "@/components/ui/textarea";
 import { useAuth } from "@clerk/nextjs";
 import { useRouter } from "next/navigation";
 import LoadingSpinner from "@/components/ui/LoadingSpinner";
-import Head from 'next/head';
-import html2canvas from 'html2canvas';
-import { supabase } from '../lib/supabaseClient'; 
-import { X } from 'lucide-react';
+import { supabase } from '../lib/supabaseClient';
+import { X, ChevronLeft, ChevronRight } from 'lucide-react';
 
 export default function Home() {
   const { userId } = useAuth();
   const router = useRouter();
-
-  useEffect(() => {
-    if (!userId) {
-      router.push("/auth/sign-in");
-    }
-  }, [userId, router]);
 
   const [prompt, setPrompt] = useState('');
   const [imageUrls, setImageUrls] = useState<string[]>([]);
@@ -35,6 +27,12 @@ export default function Home() {
   const textareaRef = useRef<HTMLTextAreaElement>(null);
   const imageContainerRef = useRef<HTMLDivElement>(null);
 
+  useEffect(() => {
+    if (!userId) {
+      router.push("/auth/sign-in");
+    }
+  }, [userId, router]);
+
   const handleHistoryClick = () => {
     router.push('/comics-history');
   };
@@ -42,11 +40,12 @@ export default function Home() {
   const saveCreditRecord = async () => {
     if (!userId) return;
   
-    const today = new Date().toISOString().split('T')[0];
+    const now = new Date();
+    const createdAt = now.toISOString();
   
     const { data, error } = await supabase
       .from('comics')
-      .insert([{ user_id: userId, created_at: today, prompt }])
+      .insert([{ user_id: userId, created_at: createdAt, prompt }])
       .select();
   
     if (error) {
@@ -57,7 +56,6 @@ export default function Home() {
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-  
     setImageUrls([]);
   
     if (credits === 0 && imageCredits === 0) {
@@ -89,6 +87,13 @@ export default function Home() {
       setImageUrls(imageData.imageUrls);
       setImgDesc(Object.values(promptData.img_desc));
   
+      if (imageData.imageUrls.length === 10) {
+        const recordId = await saveCreditRecord();
+        if (recordId) {
+          await saveImageGeneration(recordId, imageData.imageUrls, Object.values(promptData.img_desc));
+        }
+      }
+  
       if (credits > 0) {
         setCredits((prev) => prev - 6);
       } else if (imageCredits > 0) {
@@ -104,9 +109,8 @@ export default function Home() {
           console.error('Error updating image credits in Supabase:', error);
         }
       }
-  
-      const recordId = await saveCreditRecord();
-      if (recordId) await takeScreenshot(recordId);
+
+      router.push('/generation');
     } catch (error) {
       console.error('Error generating comic:', error);
     } finally {
@@ -126,27 +130,21 @@ export default function Home() {
     }
   };
 
-  const saveScreenshotData = async (recordId: string, screenshotUrl: string) => {
+  const saveImageGeneration = async (recordId: string, imageUrls: string[], imageDescriptions: string[]) => {
+    const now = new Date();
+    const createdAt = now.toISOString();
+
     const { error } = await supabase
       .from('comics')
-      .update({ screenshot_url: screenshotUrl })
+      .update({ 
+        screenshot_url: imageUrls,
+        image_description: imageDescriptions,
+        created_at: createdAt
+      })
       .eq('id', recordId);
-
+  
     if (error) {
       console.error('Error saving screenshot data:', error);
-    }
-  };
-
-  const takeScreenshot = async (recordId: string) => {
-    if (imageContainerRef.current && userId) {
-      const canvas = await html2canvas(imageContainerRef.current, {
-        scale: 2,
-        useCORS: true,
-      });
-
-      const screenshotUrl = canvas.toDataURL("image/png");
-
-      await saveScreenshotData(recordId, screenshotUrl);
     }
   };
 
@@ -163,11 +161,11 @@ export default function Home() {
   
     if (error) {
       console.error('Error fetching user records:', error);
-      return 18;
+      return 60;
     }
   
     const creditMapping = [60, 54, 48, 42, 36, 30, 24, 18, 12, 6, 0];
-    return creditMapping[count??0] ?? 0;
+    return creditMapping[count ?? 0] ?? 0;
   };
   
   useEffect(() => {
@@ -176,7 +174,6 @@ export default function Home() {
   
       try {
         const dailyCredits = await calculateDailyCredits(userId);
-        console.log('Daily Credits:', dailyCredits);
         setCredits(dailyCredits);
   
         const { data, error } = await supabase
@@ -189,7 +186,6 @@ export default function Home() {
           console.error('Error fetching user credits:', error);
           setImageCredits(0);
         } else {
-          console.log('Fetched Image Credits:', data?.image_credits);
           setImageCredits(data?.image_credits || 0);
         }
       } catch (err) {
@@ -236,129 +232,100 @@ export default function Home() {
   };
 
   return (
-    <>
-      <Head>
-        <title>Comic Strip Generator</title>
-        <meta name="description" content="Create your own comic strips!" />
-        <link href="https://fonts.googleapis.com/css2?family=Bangers&display=swap" rel="stylesheet" />
-      </Head>
-      <div className="flex min-h-screen bg-black">
-        {/* Sidebar */}
-        <div className="fixed h-full w-[5%] p-4 bg-black bg-opacity-50 text-white flex flex-col items-center justify-center">
-          <button onClick={handleHistoryClick} className="fixed top-1/2 transform -translate-y-1/2 flex flex-col items-center">
-            <svg xmlns="http://www.w3.org/2000/svg" className="h-8 w-8 mb-2" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 8v4l3 3m6 5a9 9 0 11-18 0 9 9 0 0118 0z" />
-            </svg>
-            <span>History</span>
-          </button>
-        </div>
+    <div className="min-h-screen bg-black text-white flex flex-col items-center justify-center p-4">
+      <h1 className="text-4xl font-bold text-center mb-8" style={{ fontFamily: 'Bangers, cursive', textShadow: '2px 2px 0 #333' }}>
+        Comic Strip Generator
+      </h1>
 
-        {/* Left panel */}
-        <div className="flex-grow w-[35%] p-4 flex flex-col items-center border-r-4 border-black bg-white bg-opacity-10">
-          {imageUrls.length > 0 ? (
-            <h1 className="text-3xl font-bold text-white text-center mb-4" style={{ fontFamily: 'Bangers, cursive', textShadow: '2px 2px 0 #000' }}>
-              Comic Strip Generator
-            </h1>
-          ) : null}
-          <div className="pt-[40%] w-full flex justify-center mx-auto">
-            <form onSubmit={handleSubmit} className="w-full max-w-sm bg-black p-4 rounded-lg shadow-lg border-4 border-black ml-16">
-              <div className="flex flex-col space-y-2">
-                <Textarea
-                  ref={textareaRef}
-                  placeholder="Enter your comic idea here..."
-                  value={prompt}
-                  onChange={handleTextareaChange}
-                  className="w-full min-h-[100px] resize-none border-2 border-black rounded font-sans text-white"
-                  rows={3}
-                />
-                <Button type="submit" className="w-full bg-primary hover:bg-primary-foreground text-white font-bold py-2 px-4 rounded-full border-2 border-black transform transition hover:scale-105">
-                  Generate Comic!
-                </Button>
-                <div className="text-white font" style={{ fontSize: '12px' }}>
-                  Daily Credits: {credits}
-                  <br />
-                  Additional Credits: {imageCredits}
-                </div>
+      <div className="w-full max-w-3xl flex flex-col items-center">
+        {imageUrls.length > 0 ? (
+          <div ref={imageContainerRef} className="w-full mb-8">
+            <div 
+              className={`relative ${
+                isFlipping 
+                  ? flipDirection === 'right'
+                    ? 'animate-page-turn-right'
+                    : 'animate-page-turn-left'
+                  : ''
+              }`}
+            >
+              <Image 
+                src={imageUrls[currentImageIndex]} 
+                alt={`Panel ${currentImageIndex + 1}`} 
+                width={800}
+                height={600}
+                layout="responsive"
+                objectFit="contain"
+                className="rounded-lg shadow-lg"
+              />
+              <div className="absolute bottom-0 left-0 right-0 bg-black bg-opacity-75 text-white p-4 text-center rounded-b-lg">
+                {imgDesc[currentImageIndex]}
               </div>
-            </form>
-          </div>
-        </div>
-
-        {/* Right panel */}
-        <div className="w-[58%] p-[2%] relative bg-white bg-opacity-10 flex flex-col items-center min-h-screen">
-          {imageUrls.length === 0 && (
-            <div className="flex flex-col items-center justify-center pt-[22%]">
-              <div className="bg-black bg-opacity-40 p-5">
-                <h1 className="text-6xl font-bold text-white text-center leading-tight" style={{ fontFamily: 'Bangers, cursive', textShadow: '2px 2px 0 #000' }}>
-                  Comic Strip<br />
-                  <span className="block">Generator</span>
-                </h1>
-              </div>
-              {loading && <LoadingSpinner />}
             </div>
-          )}
-          {imageUrls.length > 0 && (
-            <div ref={imageContainerRef} className="relative w-full h-full flex justify-center items-center overflow-hidden">
-              <div 
-                className={`w-4/5 h-4/5 relative ${
-                  isFlipping 
-                    ? flipDirection === 'right'
-                      ? 'animate-page-turn-right'
-                      : 'animate-page-turn-left'
-                    : ''
-                }`}
+            <div className="flex justify-between mt-4">
+              <Button
+                onClick={handlePrevImage}
+                disabled={currentImageIndex === 0}
+                className="bg-gray-800 hover:bg-gray-700 text-white font-bold py-2 px-4 rounded-full"
               >
-                <Image 
-                  src={imageUrls[currentImageIndex]} 
-                  alt={`Panel ${currentImageIndex + 1}`} 
-                  layout="fill"
-                  objectFit="contain"
-                  className="rounded"
-                />
-                <div className="absolute bottom-0 left-0 right-0 bg-black bg-opacity-50 text-white p-4 text-center">
-                  {imgDesc[currentImageIndex]}
-                </div>
-              </div>
-              {currentImageIndex < imageUrls.length - 1 && (
-                <button 
-                  onClick={handleNextImage}
-                  className="absolute right-0 top-1/2 transform -translate-y-1/2 bg-black bg-opacity-50 text-white p-2 rounded-l"
-                >
-                  <svg xmlns="http://www.w3.org/2000/svg" className="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
-                  </svg>
-                </button>
-              )}
-              {currentImageIndex > 0 && (
-                <button 
-                  onClick={handlePrevImage}
-                  className="absolute left-0 top-1/2 transform -translate-y-1/2 bg-black bg-opacity-50 text-white p-2 rounded-r"
-                >
-                  <svg xmlns="http://www.w3.org/2000/svg" className="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" />
-                  </svg>
-                </button>
-              )}
-            </div>
-          )}
-        </div>
-
-        {/* Modal for insufficient credits */}
-        {showModal && (
-          <div className="fixed inset-0 flex items-center justify-center bg-black bg-opacity-50 z-50">
-            <div className="bg-white p-6 rounded-lg shadow-lg text-center relative">
-              <button onClick={handleCloseModal} className="absolute top-2 right-2 text-gray-500 hover:text-black">
-                <X className="h-6 w-6" />
-              </button>
-              <h2 className="text-lg mb-4">You do not have enough credits to generate a comic. <br />
-              Please recharge your credits.</h2>
-              <Button onClick={handleBuyCredits} className="bg-primary text-white">
-                Buy Credits
+                <ChevronLeft className="w-6 h-6" />
+              </Button>
+              <Button
+                onClick={handleNextImage}
+                disabled={currentImageIndex === imageUrls.length - 1}
+                className="bg-gray-800 hover:bg-gray-700 text-white font-bold py-2 px-4 rounded-full"
+              >
+                <ChevronRight className="w-6 h-6" />
               </Button>
             </div>
           </div>
-        )}
+        ) : null}
+
+        <form onSubmit={handleSubmit} className="w-full max-w-md bg-gray-900 p-6 rounded-lg shadow-lg border border-gray-800">
+          <Textarea
+            ref={textareaRef}
+            placeholder="Enter your comic idea here..."
+            value={prompt}
+            onChange={handleTextareaChange}
+            className="w-full min-h-[100px] resize-none border border-gray-700 rounded bg-gray-800 text-white font-sans mb-4 p-2"
+            rows={3}
+          />
+          <Button type="submit" className="w-full bg-blue-600 hover:bg-blue-700 text-white font-bold py-2 px-4 rounded-lg border border-blue-500 transform transition hover:scale-105">
+            Generate Comic!
+          </Button>
+          <div className="text-gray-400 text-sm mt-2">
+            Daily Credits: {credits}
+            <br />
+            Additional Credits: {imageCredits}
+          </div>
+        </form>
+
+        <Button onClick={handleHistoryClick} className="mt-8 bg-gray-800 hover:bg-gray-700 text-white font-bold py-2 px-4 rounded-full">
+          View History
+        </Button>
       </div>
-    </>
+
+      {loading && (
+        <div className="fixed inset-0 flex items-center justify-center bg-black bg-opacity-75 z-50">
+          <LoadingSpinner />
+        </div>
+      )}
+
+      {showModal && (
+        <div className="fixed inset-0 flex items-center justify-center bg-black bg-opacity-75 z-50">
+          <div className="bg-gray-900 p-6 rounded-lg shadow-lg text-center relative">
+            <button onClick={handleCloseModal} className="absolute top-2 right-2 text-gray-500 hover:text-white">
+              <X className="h-6 w-6" />
+            </button>
+            <h2 className="text-lg mb-4 text-white">You do not have enough credits to generate a comic. <br />
+            Please recharge your credits.</h2>
+            <Button onClick={handleBuyCredits} className="bg-blue-600 hover:bg-blue-700 text-white">
+              Buy Credits
+            </Button>
+          </div>
+        </div>
+      )}
+    </div>
   );
 }
+

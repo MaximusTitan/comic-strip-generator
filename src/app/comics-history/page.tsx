@@ -1,129 +1,126 @@
 "use client";
 
-import { useState, useEffect } from "react";
-import { supabase } from "../../lib/supabaseClient";
-import { useAuth } from "@clerk/nextjs";
+import { useEffect, useState } from "react";
 import Image from "next/image";
-import jsPDF from 'jspdf';
+import { supabase } from "@/lib/supabaseClient";
+import { ChevronLeft, ChevronRight } from "lucide-react";
+import { Button } from "@/components/ui/button";
+import { Card, CardContent } from "@/components/ui/card";
 
-interface Comic {
-  id: number;
-  user_id: string;
-  prompt: string;
-  screenshot_url: string;
-  created_at: string;
-}
-
-export default function ComicsHistory() {
-  const { userId } = useAuth();
-  const [comics, setComics] = useState<Comic[]>([]);
+export default function Generation() {
+  const [comicsData, setComicsData] = useState<any[]>([]); // Array of comics
+  const [currentImageIndices, setCurrentImageIndices] = useState<number[]>([]); // Track image indices for each comic
   const [loading, setLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
-  const [selectedComic, setSelectedComic] = useState<Comic | null>(null);
 
   useEffect(() => {
-    const fetchComics = async () => {
-      if (!userId) return;
-
+    const fetchAllImages = async () => {
       try {
         const { data, error } = await supabase
           .from("comics")
-          .select("*")
-          .eq("user_id", userId)
+          .select("screenshot_url, image_description, prompt")
           .order("created_at", { ascending: false });
 
         if (error) {
-          setError("Failed to load comics history.");
-          console.error("Error fetching comics:", error);
-        } else {
-          setComics(data);
+          console.error("Error fetching images:", error);
+          return;
         }
-      } catch (err) {
-        console.error("Unexpected error:", err);
-        setError("An unexpected error occurred.");
+
+        const parsedData = data.map((comic) => {
+          let urls = [];
+          let descriptions = [];
+          try {
+            urls = JSON.parse(comic.screenshot_url);
+            descriptions = JSON.parse(comic.image_description);
+          } catch {
+            urls = [comic.screenshot_url];
+            descriptions = [comic.image_description];
+          }
+          return {
+            urls: urls.map((url: string) => (url.startsWith("http") ? url : `https://${url}`)),
+            descriptions,
+            prompt: comic.prompt,
+          };
+        });
+
+        setComicsData(parsedData);
+        setCurrentImageIndices(new Array(parsedData.length).fill(0)); // Initialize image indices
+      } catch (error) {
+        console.error("Unexpected error:", error);
       } finally {
         setLoading(false);
       }
     };
 
-    fetchComics();
-  }, [userId]);
+    fetchAllImages();
+  }, []);
 
-  const downloadComicAsPDF = (screenshotUrl: string) => {
-    const pdf = new jsPDF();
-    pdf.addImage(screenshotUrl, 'JPEG', 10, 10, 240, 120); // Adjust dimensions as needed
-    pdf.save('comic.pdf');
-  };
-
-  const openImagePopup = (comic: Comic) => {
-    setSelectedComic(comic);
-  };
-
-  const closeImagePopup = () => {
-    setSelectedComic(null);
+  const handleFlip = (direction: "left" | "right", index: number) => {
+    setCurrentImageIndices((prevIndices) => {
+      const newIndices = [...prevIndices];
+      if (direction === "right") {
+        newIndices[index] = Math.min(newIndices[index] + 1, comicsData[index].urls.length - 1);
+      } else {
+        newIndices[index] = Math.max(newIndices[index] - 1, 0);
+      }
+      return newIndices;
+    });
   };
 
   return (
-    <div className="min-h-screen p-6 bg-black">
-      <h1 className="text-4xl font-bold text-center mb-8 text-white" style={{ textShadow: '2px 2px 4px rgba(0,0,0,0.5)' }}>Comics History</h1>
-      <div className="max-w-5xl mx-auto">
-        {comics.length === 0 ? (
-          <p className="text-center text-white text-xl" style={{ textShadow: '1px 1px 2px rgba(0,0,0,0.5)' }}>No comics found.</p>
-        ) : (
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-20">
-            {comics.map((comic) => (
-              <div 
-                key={comic.id} 
-                className="bg-black rounded-lg shadow-lg border overflow-hidden flex flex-col w-[100%] h-full cursor-pointer transition-transform duration-300 hover:scale-105" 
-                onClick={() => openImagePopup(comic)}
-              >
-                <div className="flex flex-col items-stretch p-4 bg-primary text-white">
-                  <h2 className="text-lg font-bold truncate text-center">{comic.prompt}</h2>
-                </div>
-                <div className="flex flex-col items-stretch w-full">
-                  {comic.screenshot_url && (
-                    <div className="relative w-full" style={{ height: '500px', width: '100%' }}>
-                      <Image
-                        src={comic.screenshot_url}
-                        alt="Comic screenshot"
-                        layout="fill"
-                        objectFit="cover"
-                      />
-                    </div>
-                  )}
-                </div>
-                <div className="flex flex-col items-stretch p-4 bg-gray-100">
-                  <div className="flex justify-between items-center">
-                    <p className="text-sm text-gray-600">Created at: {new Date(comic.created_at).toLocaleString()}</p>
-                    <a 
-                      href={comic.screenshot_url}
-                      download
-                      className="bg-black text-white px-4 py-2 rounded transition-colors duration-300 hover:bg-white hover:text-black" 
-                    >
-                      Download
-                    </a>
-                  </div>
-                </div>
-              </div>
-            ))}
-          </div>
-        )}
-      </div>
-
-      {selectedComic && (
-        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50" onClick={closeImagePopup}>
-          <div className="max-w-4xl max-h-[90vh] overflow-auto bg-white p-4 rounded-lg" onClick={(e) => e.stopPropagation()}>
-            <h2 className="text-2xl font-bold mb-4 text-center">{selectedComic.prompt}</h2>
-            <Image
-              src={selectedComic.screenshot_url}
-              alt="Full size comic"
-              width={1000}
-              height={1000}
-              layout="responsive"
-              objectFit="contain"
-            />
-          </div>
+    <div className="flex flex-col items-center min-h-screen bg-black p-4 sm:p-8">
+      {loading ? (
+        <div className="flex items-center justify-center h-[400px]">
+          <div className="animate-spin rounded-full h-16 w-16 border-t-2 border-b-2 border-white"></div>
         </div>
+      ) : comicsData.length > 0 ? (
+        comicsData.map((comic, comicIndex) => (
+          <Card key={comicIndex} className="w-full max-w-3xl bg-black border-white-700 mb-8">
+            <CardContent className="p-0">
+              <h2 className="text-2xl font-bold text-white text-center py-4">{comic.prompt}</h2>
+              <div className="relative w-full h-[400px] sm:h-[500px] flex justify-center items-center overflow-hidden">
+                <div className="relative w-full h-full">
+                  <Image
+                    src={comic.urls[currentImageIndices[comicIndex]]}
+                    alt={`Comic image ${currentImageIndices[comicIndex] + 1}`}
+                    layout="fill"
+                    objectFit="contain"
+                    className="rounded-t m-0"
+                    unoptimized
+                  />
+                </div>
+                {currentImageIndices[comicIndex] < comic.urls.length - 1 && (
+                  <Button
+                    variant="outline"
+                    size="icon"
+                    className="absolute right-2 top-1/2 transform -translate-y-1/2"
+                    onClick={() => handleFlip("right", comicIndex)}
+                  >
+                    <ChevronRight className="h-4 w-4" />
+                    <span className="sr-only">Next image</span>
+                  </Button>
+                )}
+                {currentImageIndices[comicIndex] > 0 && (
+                  <Button
+                    variant="outline"
+                    size="icon"
+                    className="absolute left-2 top-1/2 transform -translate-y-1/2"
+                    onClick={() => handleFlip("left", comicIndex)}
+                  >
+                    <ChevronLeft className="h-4 w-4" />
+                    <span className="sr-only">Previous image</span>
+                  </Button>
+                )}
+              </div>
+              <div className="bg-black p-4 rounded-b">
+                <p className="text-white text-center">
+                  {comic.descriptions[currentImageIndices[comicIndex]]}
+                </p>
+              </div>
+            </CardContent>
+          </Card>
+        ))
+      ) : (
+        <p className="text-white text-xl animate-fade-in">No images found.</p>
       )}
     </div>
   );
