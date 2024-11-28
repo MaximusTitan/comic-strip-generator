@@ -1,11 +1,11 @@
-"use client";
-
+"use client"
 import { useEffect, useState } from "react";
 import Image from "next/image";
 import { supabase } from "@/lib/supabaseClient";
 import { ChevronLeft, ChevronRight } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
+import { PostgrestResponse } from "@supabase/supabase-js"; // Import the response type
 
 type ComicData = {
   urls: string[];
@@ -17,6 +17,7 @@ type SupabaseComic = {
   screenshot_url: string;
   image_description: string;
   prompt: string;
+  created_at: string;
 };
 
 export default function Generation() {
@@ -27,17 +28,17 @@ export default function Generation() {
   useEffect(() => {
     const fetchAllImages = async () => {
       try {
-        const { data, error } = await supabase
-          .from("comics")
-          .select("screenshot_url, image_description, prompt")
-          .order("created_at", { ascending: false }) as { data: SupabaseComic[]; error: any };
+        const { data, error }: PostgrestResponse<SupabaseComic> = await supabase
+        .from("comics")
+        .select("screenshot_url, image_description, prompt, created_at")
+        .order("created_at", { ascending: false });
 
         if (error) {
           console.error("Error fetching images:", error);
           return;
         }
 
-        const parsedData: ComicData[] = data.map((comic) => {
+        const parsedData: ComicData[] = data!.map((comic) => {
           let urls: string[] = [];
           let descriptions: string[] = [];
           try {
