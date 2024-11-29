@@ -8,7 +8,7 @@ const Page = () => {
   };
 
   return (
-    <div>
+    <div style={{ backgroundColor: 'black', color: 'white' }}>
       <Component onUpdateCredits={onUpdateCredits} />
     </div>
   );
