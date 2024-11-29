@@ -1,4 +1,4 @@
-"use client";
+"use client"
 
 import { useEffect, useState } from "react";
 import NextImage from "next/image";
@@ -20,22 +20,20 @@ export default function Generation() {
   const [prompt, setPrompt] = useState<string>("");
   const [loading, setLoading] = useState(true);
   const [currentImageIndex, setCurrentImageIndex] = useState(0);
-  const [isFlipping, setIsFlipping] = useState(false);
-  const [flipDirection, setFlipDirection] = useState<"left" | "right">("right");
+  const [preloadedNextIndex, setPreloadedNextIndex] = useState(1);
+  const [animate, setAnimate] = useState(false); // New state for animation toggle
 
-  // Preload images
-  const preloadImages = (urls: string[]) => {
-    return Promise.all(
-      urls.map(
-        (url) =>
-          new Promise<void>((resolve) => {
-            const img = new Image();
-            img.src = url;
-            img.onload = () => resolve();
-          })
-      )
-    );
+  // Preload image function (no changes)
+  const preloadImage = (index: number) => {
+    if (index >= 0 && index < imageUrls.length) {
+      const img = new Image();
+      img.src = imageUrls[index];
+    }
   };
+
+  useEffect(() => {
+    preloadImage(preloadedNextIndex);
+  }, [preloadedNextIndex, imageUrls]);
 
   useEffect(() => {
     const fetchLatestImages = async () => {
@@ -73,40 +71,24 @@ export default function Generation() {
             url.startsWith("http") ? url : `https://${url}`
           );
 
-          // Preload all images and update state after loading
-          await preloadImages(urls);
           setImageUrls(urls);
           setImageDescriptions(descriptions);
+          preloadImage(0);
         }
       } catch (error) {
         console.error("Unexpected error:", error);
       } finally {
         setLoading(false);
-        setTimeout(() => setIsFlipping(false), 300);
       }
     };
 
     fetchLatestImages();
   }, [userId]);
 
-  const handleFlip = (direction: "left" | "right") => {
-    setCurrentImageIndex((prev) =>
-      direction === "right"
-        ? Math.min(prev + 1, imageUrls.length - 1)
-        : Math.max(prev - 1, 0)
-    );
-    setFlipDirection(direction);
-    setIsFlipping(true);
-
-    setTimeout(() => {
-      setIsFlipping(false);
-    }, 300);
-  };
-
-  const handleDownloadPDF = async () => {
+  const handleDownloadPDF: () => Promise<void> = async () => {
     const pdf = new jsPDF();
     const imageElements = document.querySelectorAll(".pdf-image");
-
+  
     for (let i = 0; i < imageElements.length; i++) {
       const canvas = await html2canvas(imageElements[i] as HTMLElement);
       const imgData = canvas.toDataURL("image/png");
@@ -115,12 +97,33 @@ export default function Generation() {
         pdf.addPage();
       }
     }
-
+  
     pdf.save("comic-strip.pdf");
+  };
+  
+  const handleFlip = (direction: "left" | "right") => {
+    setAnimate(true); // Trigger animation
+
+    setTimeout(() => {
+      setCurrentImageIndex((prev) => {
+        const newIndex =
+          direction === "right"
+            ? Math.min(prev + 1, imageUrls.length - 1)
+            : Math.max(prev - 1, 0);
+
+        setPreloadedNextIndex(
+          direction === "right" ? newIndex + 1 : newIndex - 1
+        );
+
+        return newIndex;
+      });
+      setAnimate(false); // Reset animation state after transition
+    }, 500);
   };
 
   return (
     <div className="flex flex-col items-center justify-between h-screen bg-black text-white p-4">
+      {/* Home & Download button */}
       <div className="w-full max-w-4xl flex justify-between items-center">
         <Button
           variant="outline"
@@ -129,7 +132,6 @@ export default function Generation() {
           onClick={() => router.push("/")}
         >
           <Home className="h-5 w-5" />
-          <span className="sr-only">Home</span>
         </Button>
         <h1 className="text-2xl md:text-3xl font-bold text-center flex-grow truncate px-2">
           {prompt}
@@ -141,36 +143,34 @@ export default function Generation() {
           onClick={handleDownloadPDF}
         >
           <Download className="h-5 w-5" />
-          <span className="sr-only">Download PDF</span>
         </Button>
       </div>
 
+      {/* Image Section */}
       <div className="w-full max-w-4xl flex-grow flex items-center justify-center my-4">
         {loading ? (
           <div className="animate-spin rounded-full h-16 w-16 border-t-2 border-b-2 border-blue-500"></div>
         ) : imageUrls.length > 0 ? (
           <Card className="w-full h-full bg-black border-black overflow-hidden flex flex-col">
             <CardContent className="p-0 flex-grow flex flex-col">
-              <div className="relative flex-grow flex justify-center items-center">
-                <div
-                  className={`relative w-full h-full transition-transform duration-300 ease-in-out ${
-                    isFlipping
-                      ? flipDirection === "right"
-                        ? "animate-page-turn-right"
-                        : "animate-page-turn-left"
-                      : ""
-                  } pdf-image`}
-                >
-                  <NextImage 
-                    key={currentImageIndex} 
-                    src={imageUrls[currentImageIndex]} 
-                    alt={`Comic image ${currentImageIndex + 1}`} 
-                    layout="fill" 
-                    objectFit="contain" 
-                    className="rounded-t m-0" 
-                    unoptimized 
-                    />
+              <div
+                className={`relative flex-grow flex justify-center items-center ${
+                  animate ? "fade-in" : ""
+                }`}
+              >
+                <div className="relative w-full h-full pdf-image">
+                  <NextImage
+                    src={imageUrls[currentImageIndex]}
+                    alt={`Comic image ${currentImageIndex + 1}`}
+                    layout="fill"
+                    objectFit="contain"
+                    priority
+                    className="rounded-t m-0"
+                    unoptimized
+                  />
                 </div>
+
+                {/* Navigation Buttons */}
                 {currentImageIndex < imageUrls.length - 1 && (
                   <Button
                     variant="outline"
@@ -179,7 +179,6 @@ export default function Generation() {
                     onClick={() => handleFlip("right")}
                   >
                     <ChevronRight className="h-6 w-6" />
-                    <span className="sr-only">Next image</span>
                   </Button>
                 )}
                 {currentImageIndex > 0 && (
@@ -190,7 +189,6 @@ export default function Generation() {
                     onClick={() => handleFlip("left")}
                   >
                     <ChevronLeft className="h-6 w-6" />
-                    <span className="sr-only">Previous image</span>
                   </Button>
                 )}
               </div>
@@ -202,12 +200,11 @@ export default function Generation() {
             </CardContent>
           </Card>
         ) : (
-          <p className="text-white text-xl animate-fade-in text-center">
-            No images found.
-          </p>
+          <p className="text-white text-xl text-center">No images found.</p>
         )}
       </div>
 
+      {/* Image Counter */}
       <div className="w-full max-w-4xl flex justify-center">
         <p className="text-gray-400 text-sm">
           Image {currentImageIndex + 1} of {imageUrls.length}

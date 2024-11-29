@@ -74,6 +74,20 @@ body {
     transform-style: preserve-3d;
     transition: transform 0.6s ease;
   }
+
+  .fade-in {
+    animation: fadeIn 0.5s ease-in-out;
+  }
+  
+  @keyframes fadeIn {
+    from {
+      opacity: 0;
+    }
+    to {
+      opacity: 1;
+    }
+  }
+  
   
   @keyframes pageTurnRight {
     0% {
