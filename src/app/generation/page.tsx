@@ -123,6 +123,21 @@ export default function Generation() {
 
   return (
     <div className="flex flex-col items-center justify-between h-screen bg-black text-white p-4">
+      <div className="absolute top-10 left-0 p-4">
+        <Button
+          onClick={() => router.push("/")}
+          className="transition-transform transform hover:scale-105"
+        >
+          <NextImage 
+            src="/comig-gen.png" 
+            alt="Comic Strip Generator" 
+            width={200} 
+            height={50} 
+            className="rounded-lg" 
+            unoptimized
+          />
+        </Button>
+      </div>
       {/* Home & Download button */}
       <div className="w-full max-w-4xl flex justify-between items-center">
         <Button

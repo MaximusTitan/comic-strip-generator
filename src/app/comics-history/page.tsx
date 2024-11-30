@@ -1,5 +1,6 @@
 "use client"
 import { useEffect, useState } from "react";
+import { useRouter } from "next/navigation";
 import Image from "next/image";
 import { supabase } from "@/lib/supabaseClient";
 import { ChevronLeft, ChevronRight } from "lucide-react";
@@ -21,6 +22,7 @@ type SupabaseComic = {
 };
 
 export default function Generation() {
+  const router = useRouter();
   const [comicsData, setComicsData] = useState<ComicData[]>([]);
   const [currentImageIndices, setCurrentImageIndices] = useState<number[]>([]);
   const [loading, setLoading] = useState<boolean>(true);
@@ -41,6 +43,7 @@ export default function Generation() {
         const parsedData: ComicData[] = data!.map((comic) => {
           let urls: string[] = [];
           let descriptions: string[] = [];
+          
           try {
             urls = JSON.parse(comic.screenshot_url);
             descriptions = JSON.parse(comic.image_description);
@@ -48,12 +51,25 @@ export default function Generation() {
             urls = [comic.screenshot_url];
             descriptions = [comic.image_description];
           }
+        
+          // Ensure each URL starts with a valid scheme
+          urls = urls.map((url) => {
+            try {
+              const validUrl = new URL(url.startsWith("http") ? url : `https://${url}`);
+              return validUrl.href;
+            } catch {
+              console.warn(`Invalid URL: ${url}`);
+              return null;
+            }
+          }).filter(Boolean) as string[]; // Remove null entries
+        
           return {
-            urls: urls.map((url) => (url.startsWith("http") ? url : `https://${url}`)),
+            urls,
             descriptions,
             prompt: comic.prompt,
           };
         });
+        
 
         setComicsData(parsedData);
         setCurrentImageIndices(new Array(parsedData.length).fill(0));
@@ -81,6 +97,21 @@ export default function Generation() {
 
   return (
     <div className="flex flex-col items-center min-h-screen bg-black p-4 sm:p-8">
+      <div className="absolute top-10 left-0 p-4">
+        <Button
+          onClick={() => router.push("/")}  // Navigate to the base URL
+          className="transition-transform transform hover:scale-105"  // Add hover effect
+        >
+          <Image 
+            src="/comig-gen.png" 
+            alt="Comic Strip Generator" 
+            width={200}  
+            height={50}  
+            className="rounded-lg"  
+            unoptimized
+          />
+        </Button>
+      </div>
       {loading ? (
         <div className="flex items-center justify-center h-[400px]">
           <div className="animate-spin rounded-full h-16 w-16 border-t-2 border-b-2 border-white"></div>

@@ -233,9 +233,13 @@ export default function Home() {
 
   return (
     <div className="min-h-screen bg-black text-white flex flex-col items-center justify-center p-4">
-      <h1 className="text-4xl font-bold text-center mb-8" style={{ fontFamily: 'Bangers, cursive', textShadow: '2px 2px 0 #333' }}>
-        Comic Strip Generator
-      </h1>
+      <Image 
+        src="/comig-gen.png" 
+        alt="Comic Strip Generator" 
+        width={400}
+        height={100}
+        className="mb-8"
+      />
 
       <div className="w-full max-w-3xl flex flex-col items-center">
         {imageUrls.length > 0 ? (
