@@ -1,4 +1,4 @@
-import type { Metadata } from "next"; // Removed ReactNode import
+import type { Metadata } from "next";
 import localFont from "next/font/local";
 import ClerkClientProvider from "../components/ClerkClientProvider"; // Adjust the path if needed
 import "./globals.css";
@@ -15,10 +15,13 @@ const geistMono = localFont({
   weight: "100 900",
 });
 
-// Metadata for the application
+// Metadata for the application, including the favicon
 export const metadata: Metadata = {
-  title: "My Next.js App with Clerk",
-  description: "A Next.js project integrated with Clerk for authentication",
+  title: "ComicGen",
+  description: "Prompt your comics!",
+  icons: {
+    icon: "/comic-gen.png", // Path to your favicon in the public directory
+  },
 };
 
 // Root layout component
@@ -29,10 +32,11 @@ export default function RootLayout({
 }>) {
   return (
     <html lang="en">
+      <head>
+        <link rel="icon" href="/favicon.ico" />
+      </head>
       <body className={`${geistSans.variable} ${geistMono.variable} antialiased`}>
-        <ClerkClientProvider>
-          {children}
-        </ClerkClientProvider>
+        <ClerkClientProvider>{children}</ClerkClientProvider>
       </body>
     </html>
   );
