@@ -128,7 +128,7 @@ export default function Generation() {
     pdf.save(`${sanitizedPrompt}.pdf`);
     setIsDownloading(false); // Reset downloading state after saving
   }; 
-  
+
   const handleFlip = (direction: "left" | "right") => {
     setAnimate(true); // Trigger animation
 

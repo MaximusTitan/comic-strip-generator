@@ -150,23 +150,25 @@ export default function Home() {
 
   const calculateDailyCredits = async (userId: string): Promise<number> => {
     if (!userId) return 60;
-
+  
     const today = new Date().toISOString().split("T")[0];
-
+  
     const { count, error } = await supabase
       .from("comics")
       .select("id", { count: "exact" })
       .eq("user_id", userId)
       .gte("created_at", `${today}T00:00:00Z`)
       .lte("created_at", `${today}T23:59:59Z`);
-
+  
     if (error) {
       console.error("Error fetching user records:", error);
       return 60;
     }
-
-    return 60 - (count ?? 0) * 10; // Calculate credits as 60 - n * 10
+  
+    // Ensure credits don't go below 0
+    return Math.max(60 - (count ?? 0) * 10, 0); 
   };
+  
   
   //   const creditMapping = [60, 50, 40, 30, 20, 10, 0];
   //   return creditMapping[count ?? 0] ?? 0;
