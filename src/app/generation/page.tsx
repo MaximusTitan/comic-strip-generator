@@ -22,6 +22,7 @@ export default function Generation() {
   const [currentImageIndex, setCurrentImageIndex] = useState(0);
   const [preloadedNextIndex, setPreloadedNextIndex] = useState(1);
   const [animate, setAnimate] = useState(false); // New state for animation toggle
+  const [isDownloading, setIsDownloading] = useState(false); // New state for download loading
 
   // Preload image function (no changes)
   const preloadImage = (index: number) => {
@@ -86,20 +87,47 @@ export default function Generation() {
   }, [userId]);
 
   const handleDownloadPDF: () => Promise<void> = async () => {
-    const pdf = new jsPDF();
-    const imageElements = document.querySelectorAll(".pdf-image");
-  
-    for (let i = 0; i < imageElements.length; i++) {
-      const canvas = await html2canvas(imageElements[i] as HTMLElement);
-      const imgData = canvas.toDataURL("image/png");
-      pdf.addImage(imgData, "PNG", 0, 0, 210, 297); // A4 size
-      if (i < imageElements.length - 1) {
-        pdf.addPage();
-      }
+    setIsDownloading(true); // Set downloading state to true
+    if (!prompt) {
+      console.error("Prompt is empty or not available.");
+      return;
     }
   
-    pdf.save("comic-strip.pdf");
-  };
+    // Sanitize the prompt to create a valid filename.
+    const sanitizedPrompt = prompt.replace(/[^a-zA-Z0-9_-]/g, "_");
+  
+    // PDF size matching 16:9 ratio, 1024x576 pixels converted to mm (270.93 x 152.4 mm).
+    const pdf = new jsPDF("landscape", "mm", [270.93, 152.4]);
+  
+    for (let i = 0; i < imageUrls.length; i++) {
+      if (i > 0) {
+        pdf.addPage([270.93, 152.4]);
+      }
+  
+      const imgUrl = imageUrls[i];
+      const description = imageDescriptions[i] || "";
+  
+      // Add the image (full dimensions).
+      pdf.addImage(imgUrl, "PNG", 0, 0, 270.93, 152.4);
+  
+      // Add a semi-transparent black rectangle at the bottom.
+      pdf.setFillColor(0, 0, 0); // Black color.
+      pdf.setDrawColor(0, 0, 0); // Black color for borders as well.
+      pdf.rect(0, 132.4, 270.93, 20, "F");
+  
+      // Set transparency for the rectangle by adjusting fill color alpha.
+      pdf.setFillColor(0, 0, 0, 128); // Set alpha to 128 (50% transparency)
+  
+      // Add white text over the rectangle.
+      pdf.setFontSize(12);
+      pdf.setTextColor(255, 255, 255); // White text.
+      pdf.text(description, 10, 145, { maxWidth: 250 }); // Ensure text wraps.
+    }
+  
+    // Save the PDF with the sanitized prompt as the filename.
+    pdf.save(`${sanitizedPrompt}.pdf`);
+    setIsDownloading(false); // Reset downloading state after saving
+  }; 
   
   const handleFlip = (direction: "left" | "right") => {
     setAnimate(true); // Trigger animation
@@ -164,6 +192,8 @@ export default function Generation() {
       {/* Image Section */}
       <div className="w-full max-w-4xl flex-grow flex items-center justify-center my-4">
         {loading ? (
+          <div className="animate-spin rounded-full h-16 w-16 border-t-2 border-b-2 border-blue-500"></div>
+        ) : isDownloading ? ( // Check if downloading
           <div className="animate-spin rounded-full h-16 w-16 border-t-2 border-b-2 border-blue-500"></div>
         ) : imageUrls.length > 0 ? (
           <Card className="w-full h-full bg-black border-black overflow-hidden flex flex-col">
