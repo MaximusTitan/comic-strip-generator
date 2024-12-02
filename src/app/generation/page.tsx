@@ -85,22 +85,76 @@ export default function Generation() {
     fetchLatestImages();
   }, [userId]);
 
-  const handleDownloadPDF: () => Promise<void> = async () => {
-    const pdf = new jsPDF();
-    const imageElements = document.querySelectorAll(".pdf-image");
+  const handleDownloadPDF = async () => {
+    if (imageUrls.length === 0) {
+      console.error("No images to render into PDF");
+      return;
+    }
   
-    for (let i = 0; i < imageElements.length; i++) {
-      const canvas = await html2canvas(imageElements[i] as HTMLElement);
-      const imgData = canvas.toDataURL("image/png");
-      pdf.addImage(imgData, "PNG", 0, 0, 210, 297); // A4 size
-      if (i < imageElements.length - 1) {
-        pdf.addPage();
+    const pdf = new jsPDF();
+  
+    const margin = 20; // Set a margin around the text
+    const pageWidth = pdf.internal.pageSize.width;
+    const pageHeight = pdf.internal.pageSize.height;
+    const textWidth = pageWidth - 2 * margin; // Calculate available space for the text
+  
+    for (let i = 0; i < imageUrls.length; i++) {
+      try {
+        // Create a new image element to load the image
+        const img = new Image();
+        img.src = imageUrls[i];
+        
+        // Wait for the image to load
+        await new Promise((resolve, reject) => {
+          img.onload = () => resolve(true);
+          img.onerror = (error) => reject(error);
+        });
+  
+        // Calculate dimensions for the image to fit the PDF page
+        const imgWidth = 210; // A4 page width in mm
+        const imgHeight = (img.height * imgWidth) / img.width;
+  
+        // Add the image to the PDF
+        pdf.addImage(img, "PNG", 0, 10, imgWidth, imgHeight);
+  
+        // Add the prompt text in the middle of the page
+        const promptText = imageDescriptions[i] || prompt; // Use the description or the general prompt if no specific description is available
+  
+        pdf.setFont("helvetica", "normal");
+        pdf.setFontSize(16); // Set a reasonable font size
+        pdf.setTextColor(0, 102, 204); // Set the text color to a blue shade
+  
+        // Calculate the y position for the text (just below the image)
+        let yPosition = 10 + imgHeight + margin;
+  
+        // Split the text into lines if it exceeds the width of the page
+        const lines = pdf.splitTextToSize(promptText, textWidth);
+        lines.forEach((line: string, index: number) => {
+          pdf.text(line, margin, yPosition + (index * 10)); // Add line of text with margin and line spacing
+        });
+  
+        // Loop through the lines and add them to the PDF
+        // lines.forEach((line, index) => {
+        //   pdf.text(line, margin, yPosition + (index * 10)); // Add line of text with margin and line spacing
+        // });
+  
+        // Add a new page if it's not the last image
+        if (i < imageUrls.length - 1) {
+          pdf.addPage();
+        }
+      } catch (error) {
+        console.error(`Failed to load image at index ${i}:`, error);
       }
     }
   
+    // Save the PDF with all images and prompts
     pdf.save("comic-strip.pdf");
   };
   
+  
+
+
+
   const handleFlip = (direction: "left" | "right") => {
     setAnimate(true); // Trigger animation
 

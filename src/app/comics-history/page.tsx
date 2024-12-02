@@ -9,6 +9,7 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { useAuth } from "@clerk/nextjs"; // Import Clerk hook
 import { PostgrestResponse } from "@supabase/supabase-js";
+import { jsPDF } from "jspdf"; // Import jsPDF
 
 type ComicData = {
   urls: string[];
@@ -102,6 +103,20 @@ export default function Generation() {
     });
   };
 
+  const downloadPDF = () => {
+    const doc = new jsPDF();
+    comicsData.forEach((comic, comicIndex) => {
+      comic.urls.forEach((url, imageIndex) => {
+        doc.addImage(url, "JPEG", 10, 10, 180, 160); // Add image to PDF
+        doc.text(comic.descriptions[imageIndex], 10, 170); // Add description
+        if (imageIndex < comic.urls.length - 1) {
+          doc.addPage(); // Add a new page if there are more images
+        }
+      });
+    });
+    doc.save("comic-strip.pdf"); // Download PDF
+  };
+
   return (
     <div className="flex flex-col items-center min-h-screen bg-black p-4 sm:p-8">
       <div className="absolute top-10 left-0 p-4">
@@ -165,6 +180,13 @@ export default function Generation() {
         ))
       ) : (
         <p className="text-white text-xl animate-fade-in">No images found.</p>
+      )}
+
+      {/* Download PDF button */}
+      {comicsData.length > 0 && (
+        <Button onClick={downloadPDF} className="mt-4 bg-green-500 hover:bg-green-600">
+          Download All Images as PDF
+        </Button>
       )}
     </div>
   );
