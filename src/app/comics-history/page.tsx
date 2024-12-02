@@ -1,4 +1,5 @@
-"use client"
+"use client";
+
 import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import Image from "next/image";
@@ -6,7 +7,8 @@ import { supabase } from "@/lib/supabaseClient";
 import { ChevronLeft, ChevronRight } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
-import { PostgrestResponse } from "@supabase/supabase-js"; // Import the response type
+import { useAuth } from "@clerk/nextjs"; // Import Clerk hook
+import { PostgrestResponse } from "@supabase/supabase-js";
 
 type ComicData = {
   urls: string[];
@@ -23,17 +25,22 @@ type SupabaseComic = {
 
 export default function Generation() {
   const router = useRouter();
+  const { userId } = useAuth(); // Get the logged-in user's ID
   const [comicsData, setComicsData] = useState<ComicData[]>([]);
   const [currentImageIndices, setCurrentImageIndices] = useState<number[]>([]);
   const [loading, setLoading] = useState<boolean>(true);
 
   useEffect(() => {
     const fetchAllImages = async () => {
+      if (!userId) return; // Ensure the user is logged in
+
+      setLoading(true);
       try {
         const { data, error }: PostgrestResponse<SupabaseComic> = await supabase
-        .from("comics")
-        .select("screenshot_url, image_description, prompt, created_at")
-        .order("created_at", { ascending: false });
+          .from("comics")
+          .select("screenshot_url, image_description, prompt, created_at")
+          .eq("user_id", userId) // Filter by the logged-in user's ID
+          .order("created_at", { ascending: false });
 
         if (error) {
           console.error("Error fetching images:", error);
@@ -43,7 +50,7 @@ export default function Generation() {
         const parsedData: ComicData[] = data!.map((comic) => {
           let urls: string[] = [];
           let descriptions: string[] = [];
-          
+
           try {
             urls = JSON.parse(comic.screenshot_url);
             descriptions = JSON.parse(comic.image_description);
@@ -51,25 +58,25 @@ export default function Generation() {
             urls = [comic.screenshot_url];
             descriptions = [comic.image_description];
           }
-        
-          // Ensure each URL starts with a valid scheme
-          urls = urls.map((url) => {
-            try {
-              const validUrl = new URL(url.startsWith("http") ? url : `https://${url}`);
-              return validUrl.href;
-            } catch {
-              console.warn(`Invalid URL: ${url}`);
-              return null;
-            }
-          }).filter(Boolean) as string[]; // Remove null entries
-        
+
+          urls = urls
+            .map((url) => {
+              try {
+                const validUrl = new URL(url.startsWith("http") ? url : `https://${url}`);
+                return validUrl.href;
+              } catch {
+                console.warn(`Invalid URL: ${url}`);
+                return null;
+              }
+            })
+            .filter(Boolean) as string[];
+
           return {
             urls,
             descriptions,
             prompt: comic.prompt,
           };
         });
-        
 
         setComicsData(parsedData);
         setCurrentImageIndices(new Array(parsedData.length).fill(0));
@@ -81,7 +88,7 @@ export default function Generation() {
     };
 
     fetchAllImages();
-  }, []);
+  }, [userId]);
 
   const handleFlip = (direction: "left" | "right", index: number) => {
     setCurrentImageIndices((prevIndices) => {
@@ -99,17 +106,10 @@ export default function Generation() {
     <div className="flex flex-col items-center min-h-screen bg-black p-4 sm:p-8">
       <div className="absolute top-10 left-0 p-4">
         <Button
-          onClick={() => router.push("/")}  // Navigate to the base URL
-          className="transition-transform transform hover:scale-105"  // Add hover effect
+          onClick={() => router.push("/")}
+          className="transition-transform transform hover:scale-105"
         >
-          <Image 
-            src="/comig-gen.png" 
-            alt="Comic Strip Generator" 
-            width={200}  
-            height={50}  
-            className="rounded-lg"  
-            unoptimized
-          />
+          <Image src="/comig-gen.png" alt="Comic Strip Generator" width={200} height={50} className="rounded-lg" unoptimized />
         </Button>
       </div>
       {loading ? (
