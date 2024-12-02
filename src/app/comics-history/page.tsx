@@ -1,12 +1,16 @@
-"use client"
+"use client";
+
 import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import Image from "next/image";
 import { supabase } from "@/lib/supabaseClient";
-import { ChevronLeft, ChevronRight } from "lucide-react";
+import { ChevronLeft, ChevronRight, Download } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
-import { PostgrestResponse } from "@supabase/supabase-js"; // Import the response type
+import { useAuth } from "@clerk/nextjs"; // Import Clerk hook
+import { PostgrestResponse } from "@supabase/supabase-js";
+import jsPDF from "jspdf";
+import html2canvas from "html2canvas";
 
 type ComicData = {
   urls: string[];
@@ -21,19 +25,25 @@ type SupabaseComic = {
   created_at: string;
 };
 
-export default function Generation() {
+export default function ComicsHistory() {
   const router = useRouter();
+  const { userId } = useAuth(); // Get the logged-in user's ID
   const [comicsData, setComicsData] = useState<ComicData[]>([]);
   const [currentImageIndices, setCurrentImageIndices] = useState<number[]>([]);
   const [loading, setLoading] = useState<boolean>(true);
+  const [isDownloading, setIsDownloading] = useState<boolean>(false); // New state for download loading
 
   useEffect(() => {
     const fetchAllImages = async () => {
+      if (!userId) return; // Ensure the user is logged in
+
+      setLoading(true);
       try {
         const { data, error }: PostgrestResponse<SupabaseComic> = await supabase
-        .from("comics")
-        .select("screenshot_url, image_description, prompt, created_at")
-        .order("created_at", { ascending: false });
+          .from("comics")
+          .select("screenshot_url, image_description, prompt, created_at")
+          .eq("user_id", userId) // Filter by the logged-in user's ID
+          .order("created_at", { ascending: false });
 
         if (error) {
           console.error("Error fetching images:", error);
@@ -43,7 +53,7 @@ export default function Generation() {
         const parsedData: ComicData[] = data!.map((comic) => {
           let urls: string[] = [];
           let descriptions: string[] = [];
-          
+
           try {
             urls = JSON.parse(comic.screenshot_url);
             descriptions = JSON.parse(comic.image_description);
@@ -51,25 +61,25 @@ export default function Generation() {
             urls = [comic.screenshot_url];
             descriptions = [comic.image_description];
           }
-        
-          // Ensure each URL starts with a valid scheme
-          urls = urls.map((url) => {
-            try {
-              const validUrl = new URL(url.startsWith("http") ? url : `https://${url}`);
-              return validUrl.href;
-            } catch {
-              console.warn(`Invalid URL: ${url}`);
-              return null;
-            }
-          }).filter(Boolean) as string[]; // Remove null entries
-        
+
+          urls = urls
+            .map((url) => {
+              try {
+                const validUrl = new URL(url.startsWith("http") ? url : `https://${url}`);
+                return validUrl.href;
+              } catch {
+                console.warn(`Invalid URL: ${url}`);
+                return null;
+              }
+            })
+            .filter(Boolean) as string[];
+
           return {
             urls,
             descriptions,
             prompt: comic.prompt,
           };
         });
-        
 
         setComicsData(parsedData);
         setCurrentImageIndices(new Array(parsedData.length).fill(0));
@@ -81,7 +91,7 @@ export default function Generation() {
     };
 
     fetchAllImages();
-  }, []);
+  }, [userId]);
 
   const handleFlip = (direction: "left" | "right", index: number) => {
     setCurrentImageIndices((prevIndices) => {
@@ -95,21 +105,48 @@ export default function Generation() {
     });
   };
 
+  const handleDownloadPDF = async (comic: ComicData) => {
+    setIsDownloading(true); // Set downloading state to true
+    const pdf = new jsPDF("landscape", "mm", [270.93, 152.4]);
+
+    for (let i = 0; i < comic.urls.length; i++) {
+      if (i > 0) {
+        pdf.addPage([270.93, 152.4]);
+      }
+
+      const imgUrl = comic.urls[i];
+      const description = comic.descriptions[i] || "";
+
+      // Add the image (full dimensions).
+      pdf.addImage(imgUrl, "PNG", 0, 0, 270.93, 152.4);
+
+      // Add a semi-transparent black rectangle at the bottom.
+      pdf.setFillColor(0, 0, 0); // Black color.
+      pdf.setDrawColor(0, 0, 0); // Black color for borders as well.
+      pdf.rect(0, 132.4, 270.93, 20, "F");
+
+      // Set transparency for the rectangle by adjusting fill color alpha.
+      pdf.setFillColor(0, 0, 0, 128); // Set alpha to 128 (50% transparency)
+
+      // Add white text over the rectangle.
+      pdf.setFontSize(12);
+      pdf.setTextColor(255, 255, 255); // White text.
+      pdf.text(description, 10, 145, { maxWidth: 250 }); // Ensure text wraps.
+    }
+
+    // Save the PDF with the prompt as the filename.
+    pdf.save(`${comic.prompt.replace(/[^a-zA-Z0-9_-]/g, "_")}.pdf`);
+    setIsDownloading(false); // Reset downloading state after saving
+  };
+
   return (
     <div className="flex flex-col items-center min-h-screen bg-black p-4 sm:p-8">
       <div className="absolute top-10 left-0 p-4">
         <Button
-          onClick={() => router.push("/")}  // Navigate to the base URL
-          className="transition-transform transform hover:scale-105"  // Add hover effect
+          onClick={() => router.push("/")}
+          className="transition-transform transform hover:scale-105"
         >
-          <Image 
-            src="/comig-gen.png" 
-            alt="Comic Strip Generator" 
-            width={200}  
-            height={50}  
-            className="rounded-lg"  
-            unoptimized
-          />
+          <Image src="/comig-gen.png" alt="Comic Strip Generator" width={200} height={50} className="rounded-lg" unoptimized />
         </Button>
       </div>
       {loading ? (
@@ -154,6 +191,17 @@ export default function Generation() {
                     <span className="sr-only">Previous image</span>
                   </Button>
                 )}
+                {/* Download Button */}
+                <Button
+                  variant="outline"
+                  size="icon"
+                  className="absolute bottom-2 right-2"
+                  onClick={() => handleDownloadPDF(comic)}
+                  disabled={isDownloading} // Disable button while downloading
+                >
+                  <Download className="h-4 w-4" />
+                  <span className="sr-only">Download PDF</span>
+                </Button>
               </div>
               <div className="bg-black p-4 rounded-b">
                 <p className="text-white text-center">
