@@ -177,7 +177,7 @@ export default function Generation() {
           <Home className="h-5 w-5" />
         </Button>
         <h1 className="text-2xl md:text-3xl font-bold text-center flex-grow truncate px-2">
-          {prompt}
+          {imageDescriptions[0]}
         </h1>
         <Button
           variant="outline"
@@ -238,9 +238,11 @@ export default function Generation() {
                 )}
               </div>
               <div className="bg-black p-2 rounded-b">
-                <p className="text-white text-center text-sm md:text-base line-clamp-2">
-                  {imageDescriptions[currentImageIndex]}
-                </p>
+                {currentImageIndex > 0 ? ( // Show description for all images except the first one
+                  <p className="text-white text-center text-sm md:text-base line-clamp-2">
+                    {imageDescriptions[currentImageIndex]}
+                  </p>
+                ) : null}
               </div>
             </CardContent>
           </Card>
