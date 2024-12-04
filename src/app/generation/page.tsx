@@ -9,6 +9,7 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import jsPDF from "jspdf";
 import html2canvas from "html2canvas";
+import "@fontsource/bangers";
 import { useSession } from "@clerk/nextjs";
 
 export default function Generation() {
@@ -150,7 +151,7 @@ export default function Generation() {
   };
 
   return (
-    <div className="flex flex-col items-center justify-between h-screen bg-black text-white p-4">
+    <div className="flex flex-col items-center justify-between h-screen bg-black text-white p-4 font-bangers">
       <div className="absolute top-10 left-0 p-4">
         <Button
           onClick={() => router.push("/")}

@@ -9,6 +9,7 @@ import { useRouter } from "next/navigation";
 import LoadingSpinner from "@/components/ui/LoadingSpinner";
 import { supabase } from '../lib/supabaseClient';
 import { X, ChevronLeft, ChevronRight } from 'lucide-react';
+import "@fontsource/bangers";
 
 export default function Home() {
   const { userId } = useAuth();
@@ -299,6 +300,7 @@ export default function Home() {
             onChange={handleTextareaChange}
             className="w-full min-h-[100px] resize-none border border-gray-700 rounded bg-gray-800 text-white font-sans mb-4 p-2"
             rows={3}
+            style={{ fontFamily: "'Bangers', cursive" }} // Add this line to apply Bangers font to the placeholder
           />
           <Button type="submit" className="w-full bg-blue-600 hover:bg-blue-700 text-white font-bold py-2 px-4 rounded-lg border border-blue-500 transform transition hover:scale-105">
             Generate Comic!
