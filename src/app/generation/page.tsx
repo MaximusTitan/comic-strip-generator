@@ -1,6 +1,6 @@
 "use client"
 
-import { useEffect, useState } from "react";
+import { useEffect, useState, useCallback, useMemo, useRef } from "react";
 import NextImage from "next/image";
 import { useRouter } from "next/navigation";
 import { supabase } from "@/lib/supabaseClient";
@@ -9,34 +9,55 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import jsPDF from "jspdf";
 import html2canvas from "html2canvas";
-import "@fontsource/bangers";
 import { useSession } from "@clerk/nextjs";
 
 export default function Generation() {
   const { isSignedIn, session } = useSession();
   const userId = isSignedIn ? session?.user?.id : null;
   const router = useRouter();
-  const [imageUrls, setImageUrls] = useState<string[]>([]);
-  const [imageDescriptions, setImageDescriptions] = useState<string[]>([]);
-  const [prompt, setPrompt] = useState<string>("");
-  const [loading, setLoading] = useState(true);
+  
+  const [imageData, setImageData] = useState<{
+    urls: string[];
+    descriptions: string[];
+    prompt: string;
+  }>({
+    urls: [],
+    descriptions: [],
+    prompt: ""
+  });
+  
   const [currentImageIndex, setCurrentImageIndex] = useState(0);
-  const [preloadedNextIndex, setPreloadedNextIndex] = useState(1);
-  const [animate, setAnimate] = useState(false); // New state for animation toggle
-  const [isDownloading, setIsDownloading] = useState(false); // New state for download loading
+  const [loading, setLoading] = useState(true);
+  const [preloadedImages, setPreloadedImages] = useState<{ [key: number]: HTMLImageElement }>({});
+  
+  // Animation states
+  const [animationDirection, setAnimationDirection] = useState<'left' | 'right' | null>(null);
+  const [isAnimating, setIsAnimating] = useState(false);
 
-  // Preload image function (no changes)
-  const preloadImage = (index: number) => {
-    if (index >= 0 && index < imageUrls.length) {
-      const img = new Image();
-      img.src = imageUrls[index];
-    }
-  };
+  // Preload images more efficiently
+  const preloadImage = useCallback((index: number) => {
+    if (index < 0 || index >= imageData.urls.length) return;
 
+    const existingPreload = preloadedImages[index];
+    if (existingPreload) return;
+
+    const img = new Image();
+    img.src = imageData.urls[index];
+    
+    img.onload = () => {
+      setPreloadedImages(prev => ({
+        ...prev,
+        [index]: img
+      }));
+    };
+  }, [imageData.urls, preloadedImages]);
+
+  // Prefetch all images when data is loaded
   useEffect(() => {
-    preloadImage(preloadedNextIndex);
-  }, [preloadedNextIndex, imageUrls]);
+    imageData.urls.forEach((_, index) => preloadImage(index));
+  }, [imageData.urls, preloadImage]);
 
+  // Fetch latest images
   useEffect(() => {
     const fetchLatestImages = async () => {
       if (!userId) return;
@@ -62,20 +83,21 @@ export default function Generation() {
           try {
             urls = JSON.parse(data.screenshot_url);
             descriptions = JSON.parse(data.image_description);
-            setPrompt(data.prompt);
           } catch {
             urls = [data.screenshot_url];
             descriptions = [data.image_description];
-            setPrompt(data.prompt);
           }
 
+          // Ensure full URLs
           urls = urls.map((url) =>
             url.startsWith("http") ? url : `https://${url}`
           );
 
-          setImageUrls(urls);
-          setImageDescriptions(descriptions);
-          preloadImage(0);
+          setImageData({
+            urls,
+            descriptions,
+            prompt: data.prompt
+          });
         }
       } catch (error) {
         console.error("Unexpected error:", error);
@@ -87,177 +109,218 @@ export default function Generation() {
     fetchLatestImages();
   }, [userId]);
 
-  const handleDownloadPDF: () => Promise<void> = async () => {
-    setIsDownloading(true); // Set downloading state to true
-    if (!prompt) {
-      console.error("Prompt is empty or not available.");
-      return;
-    }
-  
-    // Sanitize the prompt to create a valid filename.
-    const sanitizedPrompt = prompt.replace(/[^a-zA-Z0-9_-]/g, "_");
-  
-    // PDF size matching 16:9 ratio, 1024x576 pixels converted to mm (270.93 x 152.4 mm).
-    const pdf = new jsPDF("landscape", "mm", [270.93, 152.4]);
-  
-    for (let i = 0; i < imageUrls.length; i++) {
-      if (i > 0) {
-        pdf.addPage([270.93, 152.4]);
-      }
-  
-      const imgUrl = imageUrls[i];
-      const description = imageDescriptions[i] || "";
-  
-      // Add the image (full dimensions).
-      pdf.addImage(imgUrl, "PNG", 0, 0, 270.93, 152.4);
-  
-      // Add a semi-transparent black rectangle at the bottom.
-      pdf.setFillColor(0, 0, 0); // Black color.
-      pdf.setDrawColor(0, 0, 0); // Black color for borders as well.
-      pdf.rect(0, 132.4, 270.93, 20, "F");
-  
-      // Set transparency for the rectangle by adjusting fill color alpha.
-      pdf.setFillColor(0, 0, 0, 128); // Set alpha to 128 (50% transparency)
-  
-      // Add white text over the rectangle.
-      pdf.setFontSize(12);
-      pdf.setTextColor(255, 255, 255); // White text.
-      pdf.text(description, 10, 145, { maxWidth: 250 }); // Ensure text wraps.
-    }
-  
-    // Save the PDF with the sanitized prompt as the filename.
-    pdf.save(`${sanitizedPrompt}.pdf`);
-    setIsDownloading(false); // Reset downloading state after saving
-  }; 
+  // Optimized navigation handler
+  const handleNavigation = useCallback((direction: "left" | "right") => {
+    if (isAnimating) return;
 
-  const handleFlip = (direction: "left" | "right") => {
-    setAnimate(true); // Trigger animation
+    setIsAnimating(true);
+    setAnimationDirection(direction);
 
+    // Slight delay to allow animation to start
     setTimeout(() => {
-      setCurrentImageIndex((prev) => {
-        const newIndex =
-          direction === "right"
-            ? Math.min(prev + 1, imageUrls.length - 1)
-            : Math.max(prev - 1, 0);
-
-        setPreloadedNextIndex(
-          direction === "right" ? newIndex + 1 : newIndex - 1
-        );
-
+      setCurrentImageIndex(prev => {
+        const newIndex = direction === "right"
+          ? Math.min(prev + 1, imageData.urls.length - 1)
+          : Math.max(prev - 1, 0);
+        
+        // Prefetch adjacent images
+        preloadImage(newIndex + (direction === "right" ? 1 : -1));
+        
         return newIndex;
       });
-      setAnimate(false); // Reset animation state after transition
-    }, 500);
+
+      // Reset animation state
+      setTimeout(() => {
+        setIsAnimating(false);
+        setAnimationDirection(null);
+      }, 300);
+    }, 150);
+  }, [imageData.urls, preloadImage, isAnimating]);
+
+  // PDF Download Handler
+  const handleDownloadPDF = async () => {
+    const pdf = new jsPDF();
+    const imageElements = document.querySelectorAll(".pdf-image");
+  
+    for (let i = 0; i < imageElements.length; i++) {
+      const canvas = await html2canvas(imageElements[i] as HTMLElement);
+      const imgData = canvas.toDataURL("image/png");
+      pdf.addImage(imgData, "PNG", 0, 0, 210, 297); // A4 size
+      if (i < imageElements.length - 1) {
+        pdf.addPage();
+      }
+    }
+  
+    pdf.save("comic-strip.pdf");
+  };
+
+  // Determine if navigation buttons should be shown
+  const showLeftNav = currentImageIndex > 0;
+  const showRightNav = currentImageIndex < imageData.urls.length - 1;
+
+  // Preloaded image rendering
+  const currentImage = useMemo(() => {
+    return preloadedImages[currentImageIndex] || null;
+  }, [preloadedImages, currentImageIndex]);
+
+  // Custom CSS for animations
+  const getAnimationClasses = () => {
+    if (!animationDirection) return "";
+
+    if (animationDirection === 'right') {
+      return isAnimating 
+        ? "animate-slide-out-left" 
+        : "animate-slide-in-right";
+    } else {
+      return isAnimating 
+        ? "animate-slide-out-right" 
+        : "animate-slide-in-left";
+    }
   };
 
   return (
-    <div className="flex flex-col items-center justify-between h-screen bg-black text-white p-4 font-bangers">
-      <div className="absolute top-10 left-0 p-4">
-        <Button
-          onClick={() => router.push("/")}
-          className="transition-transform transform hover:scale-105"
-        >
-          <NextImage 
-            src="/comig-gen.png" 
-            alt="Comic Strip Generator" 
-            width={200} 
-            height={50} 
-            className="rounded-lg" 
-            unoptimized
-          />
-        </Button>
-      </div>
-      {/* Home & Download button */}
-      <div className="w-full max-w-4xl flex justify-between items-center">
-        <Button
-          variant="outline"
-          size="icon"
-          className="bg-gray-800 hover:bg-gray-700 text-white"
-          onClick={() => router.push("/")}
-        >
-          <Home className="h-5 w-5" />
-        </Button>
-        <h1 className="text-2xl md:text-3xl font-bold text-center flex-grow truncate px-2">
-          {imageDescriptions[0]}
-        </h1>
-        <Button
-          variant="outline"
-          size="icon"
-          className="bg-gray-800 hover:bg-gray-700 text-white"
-          onClick={handleDownloadPDF}
-        >
-          <Download className="h-5 w-5" />
-        </Button>
-      </div>
+    <>
+      {/* Add custom animation keyframes */}
+      <style jsx global>{`
+        @keyframes slideInRight {
+          from { transform: translateX(100%); opacity: 0; }
+          to { transform: translateX(0); opacity: 1; }
+        }
+        @keyframes slideInLeft {
+          from { transform: translateX(-100%); opacity: 0; }
+          to { transform: translateX(0); opacity: 1; }
+        }
+        @keyframes slideOutLeft {
+          from { transform: translateX(0); opacity: 1; }
+          to { transform: translateX(-100%); opacity: 0; }
+        }
+        @keyframes slideOutRight {
+          from { transform: translateX(0); opacity: 1; }
+          to { transform: translateX(100%); opacity: 0; }
+        }
+        .animate-slide-in-right {
+          animation: slideInRight 0.3s ease-out;
+        }
+        .animate-slide-in-left {
+          animation: slideInLeft 0.3s ease-out;
+        }
+        .animate-slide-out-left {
+          animation: slideOutLeft 0.3s ease-out;
+        }
+        .animate-slide-out-right {
+          animation: slideOutRight 0.3s ease-out;
+        }
+      `}</style>
 
-      {/* Image Section */}
-      <div className="w-full max-w-4xl flex-grow flex items-center justify-center my-4">
-        {loading ? (
-          <div className="animate-spin rounded-full h-16 w-16 border-t-2 border-b-2 border-blue-500"></div>
-        ) : isDownloading ? ( // Check if downloading
-          <div className="animate-spin rounded-full h-16 w-16 border-t-2 border-b-2 border-blue-500"></div>
-        ) : imageUrls.length > 0 ? (
-          <Card className="w-full h-full bg-black border-black overflow-hidden flex flex-col">
-            <CardContent className="p-0 flex-grow flex flex-col">
-              <div
-                className={`relative flex-grow flex justify-center items-center ${
-                  animate ? "fade-in" : ""
-                }`}
-              >
-                <div className="relative w-full h-full pdf-image">
-                  <NextImage
-                    src={imageUrls[currentImageIndex]}
-                    alt={`Comic image ${currentImageIndex + 1}`}
-                    layout="fill"
-                    objectFit="contain"
-                    priority
-                    className="rounded-t m-0"
-                    unoptimized
-                  />
+      <div className="flex flex-col items-center justify-between h-screen bg-black text-white p-4">
+        {/* Logo Button */}
+        <div className="absolute top-10 left-0 p-4">
+          <Button
+            onClick={() => router.push("/")}
+            className="transition-transform transform hover:scale-105"
+          >
+            <NextImage 
+              src="/comig-gen.png" 
+              alt="Comic Strip Generator" 
+              width={200} 
+              height={50} 
+              className="rounded-lg" 
+              unoptimized
+            />
+          </Button>
+        </div>
+
+        {/* Header Section */}
+        <div className="w-full max-w-4xl flex justify-between items-center">
+          <Button
+            variant="outline"
+            size="icon"
+            className="bg-gray-800 hover:bg-gray-700 text-white"
+            onClick={() => router.push("/")}
+          >
+            <Home className="h-5 w-5" />
+          </Button>
+          <h1 className="text-2xl md:text-3xl font-bold text-center flex-grow truncate px-2">
+            {imageData.prompt}
+          </h1>
+          <Button
+            variant="outline"
+            size="icon"
+            className="bg-gray-800 hover:bg-gray-700 text-white"
+            onClick={handleDownloadPDF}
+          >
+            <Download className="h-5 w-5" />
+          </Button>
+        </div>
+
+        {/* Image Section */}
+        <div className="w-full max-w-4xl flex-grow flex items-center justify-center my-4">
+          {loading ? (
+            <div className="animate-spin rounded-full h-16 w-16 border-t-2 border-b-2 border-blue-500"></div>
+          ) : imageData.urls.length > 0 ? (
+            <Card className="w-full h-full bg-black border-black overflow-hidden flex flex-col">
+              <CardContent className="p-0 flex-grow flex flex-col">
+                <div className="relative flex-grow flex justify-center items-center">
+                  <div 
+                    key={currentImageIndex} 
+                    className={`absolute w-full h-full pdf-image ${getAnimationClasses()}`}
+                  >
+                    {currentImage ? (
+                      <img 
+                        src={currentImage.src} 
+                        alt={`Comic image ${currentImageIndex + 1}`}
+                        className="w-full h-full object-contain rounded-t"
+                      />
+                    ) : (
+                      <div className="w-full h-full flex items-center justify-center">
+                        Loading...
+                      </div>
+                    )}
+                  </div>
+
+                  {/* Navigation Buttons */}
+                  {showRightNav && (
+                    <Button
+                      variant="outline"
+                      size="icon"
+                      disabled={isAnimating}
+                      className="absolute right-2 top-1/2 transform -translate-y-1/2 bg-gray-800 hover:bg-gray-700 text-white"
+                      onClick={() => handleNavigation("right")}
+                    >
+                      <ChevronRight className="h-6 w-6" />
+                    </Button>
+                  )}
+                  {showLeftNav && (
+                    <Button
+                      variant="outline"
+                      size="icon"
+                      disabled={isAnimating}
+                      className="absolute left-2 top-1/2 transform -translate-y-1/2 bg-gray-800 hover:bg-gray-700 text-white"
+                      onClick={() => handleNavigation("left")}
+                    >
+                      <ChevronLeft className="h-6 w-6" />
+                    </Button>
+                  )}
                 </div>
-
-                {/* Navigation Buttons */}
-                {currentImageIndex < imageUrls.length - 1 && (
-                  <Button
-                    variant="outline"
-                    size="icon"
-                    className="absolute right-2 top-1/2 transform -translate-y-1/2 bg-gray-800 hover:bg-gray-700 text-white"
-                    onClick={() => handleFlip("right")}
-                  >
-                    <ChevronRight className="h-6 w-6" />
-                  </Button>
-                )}
-                {currentImageIndex > 0 && (
-                  <Button
-                    variant="outline"
-                    size="icon"
-                    className="absolute left-2 top-1/2 transform -translate-y-1/2 bg-gray-800 hover:bg-gray-700 text-white"
-                    onClick={() => handleFlip("left")}
-                  >
-                    <ChevronLeft className="h-6 w-6" />
-                  </Button>
-                )}
-              </div>
-              <div className="bg-black p-2 rounded-b">
-                {currentImageIndex > 0 ? ( // Show description for all images except the first one
+                <div className="bg-black p-2 rounded-b">
                   <p className="text-white text-center text-sm md:text-base line-clamp-2">
-                    {imageDescriptions[currentImageIndex]}
+                    {imageData.descriptions[currentImageIndex]}
                   </p>
-                ) : null}
-              </div>
-            </CardContent>
-          </Card>
-        ) : (
-          <p className="text-white text-xl text-center">No images found.</p>
-        )}
-      </div>
+                </div>
+              </CardContent>
+            </Card>
+          ) : (
+            <p className="text-white text-xl text-center">No images found.</p>
+          )}
+        </div>
 
-      {/* Image Counter */}
-      <div className="w-full max-w-4xl flex justify-center">
-        <p className="text-gray-400 text-sm">
-          Image {currentImageIndex + 1} of {imageUrls.length}
-        </p>
+        {/* Image Counter */}
+        <div className="w-full max-w-4xl flex justify-center">
+          <p className="text-gray-400 text-sm">
+            Image {currentImageIndex + 1} of {imageData.urls.length}
+          </p>
+        </div>
       </div>
-    </div>
+    </>
   );
 }
