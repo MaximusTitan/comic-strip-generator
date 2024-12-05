@@ -27,7 +27,7 @@ export async function signUpAction(formData: FormData): Promise<void> {
     console.error(error.code + " " + error.message);
     throw new Error(error.message);
   }
-};
+}
 
 export const signInAction = async (formData: FormData) => {
   const email = formData.get("email") as string;
