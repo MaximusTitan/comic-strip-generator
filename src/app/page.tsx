@@ -239,105 +239,112 @@ export default function Home() {
   };
 
   return (
-    <div className="min-h-screen bg-black text-white flex flex-col items-center justify-center p-4">
-      <Image 
-        src="/comig-gen.png" 
-        alt="Comic Strip Generator" 
-        width={400}
-        height={100}
-        className="mb-8"
-      />
+    <>
+      <style jsx global>{`
+        @import url('https://fonts.googleapis.com/css2?family=DM+Sans&display=swap');
+        // ... existing keyframes ...
+      `}</style>
 
-      <div className="w-full max-w-3xl flex flex-col items-center">
-        {imageUrls.length > 0 ? (
-          <div ref={imageContainerRef} className="w-full mb-8">
-            <div 
-              className={`relative ${
-                isFlipping 
-                  ? flipDirection === 'right'
-                    ? 'animate-page-turn-right'
-                    : 'animate-page-turn-left'
-                  : ''
-              }`}
-            >
-              <Image 
-                src={imageUrls[currentImageIndex]} 
-                alt={`Panel ${currentImageIndex + 1}`} 
-                width={800}
-                height={600}
-                layout="responsive"
-                objectFit="contain"
-                className="rounded-lg shadow-lg"
-              />
-              <div className="absolute bottom-0 left-0 right-0 bg-black bg-opacity-75 text-white p-4 text-center rounded-b-lg">
-                {imgDesc[currentImageIndex]}
+      <div className="min-h-screen bg-black text-white flex flex-col items-center justify-center p-4" style={{ fontFamily: "'DM Sans', sans-serif" }}>
+        <Image 
+          src="/comig-gen.png" 
+          alt="Comic Strip Generator" 
+          width={400}
+          height={100}
+          className="mb-8"
+        />
+
+        <div className="w-full max-w-3xl flex flex-col items-center">
+          {imageUrls.length > 0 ? (
+            <div ref={imageContainerRef} className="w-full mb-8">
+              <div 
+                className={`relative ${
+                  isFlipping 
+                    ? flipDirection === 'right'
+                      ? 'animate-page-turn-right'
+                      : 'animate-page-turn-left'
+                    : ''
+                }`}
+              >
+                <Image 
+                  src={imageUrls[currentImageIndex]} 
+                  alt={`Panel ${currentImageIndex + 1}`} 
+                  width={800}
+                  height={600}
+                  layout="responsive"
+                  objectFit="contain"
+                  className="rounded-lg shadow-lg"
+                />
+                <div className="absolute bottom-0 left-0 right-0 bg-black bg-opacity-75 text-white p-4 text-center rounded-b-lg">
+                  {imgDesc[currentImageIndex]}
+                </div>
+              </div>
+              <div className="flex justify-between mt-4">
+                <Button
+                  onClick={handlePrevImage}
+                  disabled={currentImageIndex === 0}
+                  className="bg-gray-800 hover:bg-gray-700 text-white font-bold py-2 px-4 rounded-full"
+                >
+                  <ChevronLeft className="w-6 h-6" />
+                </Button>
+                <Button
+                  onClick={handleNextImage}
+                  disabled={currentImageIndex === imageUrls.length - 1}
+                  className="bg-gray-800 hover:bg-gray-700 text-white font-bold py-2 px-4 rounded-full"
+                >
+                  <ChevronRight className="w-6 h-6" />
+                </Button>
               </div>
             </div>
-            <div className="flex justify-between mt-4">
-              <Button
-                onClick={handlePrevImage}
-                disabled={currentImageIndex === 0}
-                className="bg-gray-800 hover:bg-gray-700 text-white font-bold py-2 px-4 rounded-full"
-              >
-                <ChevronLeft className="w-6 h-6" />
-              </Button>
-              <Button
-                onClick={handleNextImage}
-                disabled={currentImageIndex === imageUrls.length - 1}
-                className="bg-gray-800 hover:bg-gray-700 text-white font-bold py-2 px-4 rounded-full"
-              >
-                <ChevronRight className="w-6 h-6" />
+          ) : null}
+
+          <form onSubmit={handleSubmit} className="w-full max-w-md bg-gray-900 p-6 rounded-lg shadow-lg border border-gray-800">
+            <Textarea
+              ref={textareaRef}
+              placeholder="Enter your comic idea here..."
+              value={prompt}
+              onChange={handleTextareaChange}
+              className="w-full min-h-[100px] resize-none border border-gray-700 rounded bg-gray-800 text-white font-sans mb-4 p-2"
+              rows={3}
+              style={{ fontFamily: "'DM Sans', sans-serif" }}
+            />
+            <Button type="submit" className="w-full bg-blue-600 hover:bg-blue-700 text-white font-bold py-2 px-4 rounded-lg border border-blue-500 transform transition hover:scale-105">
+              Generate Comic!
+            </Button>
+            <div className="text-gray-400 text-sm mt-2">
+              Daily Credits: {credits}
+              <br />
+              Additional Credits: {imageCredits}
+            </div>
+          </form>
+
+          <Button onClick={handleHistoryClick} className="mt-8 bg-gray-800 hover:bg-gray-700 text-white font-bold py-2 px-4 rounded-full">
+            View History
+          </Button>
+        </div>
+
+        {loading && (
+          <div className="fixed inset-0 flex items-center justify-center bg-black bg-opacity-75 z-50">
+            <LoadingSpinner />
+          </div>
+        )}
+
+        {showModal && (
+          <div className="fixed inset-0 flex items-center justify-center bg-black bg-opacity-75 z-50">
+            <div className="bg-gray-900 p-6 rounded-lg shadow-lg text-center relative">
+              <button onClick={handleCloseModal} className="absolute top-2 right-2 text-gray-500 hover:text-white">
+                <X className="h-6 w-6" />
+              </button>
+              <h2 className="text-lg mb-4 text-white">You do not have enough credits to generate a comic. <br />
+              Please recharge your credits.</h2>
+              <Button onClick={handleBuyCredits} className="bg-blue-600 hover:bg-blue-700 text-white">
+                Buy Credits
               </Button>
             </div>
           </div>
-        ) : null}
-
-        <form onSubmit={handleSubmit} className="w-full max-w-md bg-gray-900 p-6 rounded-lg shadow-lg border border-gray-800">
-          <Textarea
-            ref={textareaRef}
-            placeholder="Enter your comic idea here..."
-            value={prompt}
-            onChange={handleTextareaChange}
-            className="w-full min-h-[100px] resize-none border border-gray-700 rounded bg-gray-800 text-white font-sans mb-4 p-2"
-            rows={3}
-            style={{ fontFamily: "'Bangers', cursive" }} // Add this line to apply Bangers font to the placeholder
-          />
-          <Button type="submit" className="w-full bg-blue-600 hover:bg-blue-700 text-white font-bold py-2 px-4 rounded-lg border border-blue-500 transform transition hover:scale-105">
-            Generate Comic!
-          </Button>
-          <div className="text-gray-400 text-sm mt-2">
-            Daily Credits: {credits}
-            <br />
-            Additional Credits: {imageCredits}
-          </div>
-        </form>
-
-        <Button onClick={handleHistoryClick} className="mt-8 bg-gray-800 hover:bg-gray-700 text-white font-bold py-2 px-4 rounded-full">
-          View History
-        </Button>
+        )}
       </div>
-
-      {loading && (
-        <div className="fixed inset-0 flex items-center justify-center bg-black bg-opacity-75 z-50">
-          <LoadingSpinner />
-        </div>
-      )}
-
-      {showModal && (
-        <div className="fixed inset-0 flex items-center justify-center bg-black bg-opacity-75 z-50">
-          <div className="bg-gray-900 p-6 rounded-lg shadow-lg text-center relative">
-            <button onClick={handleCloseModal} className="absolute top-2 right-2 text-gray-500 hover:text-white">
-              <X className="h-6 w-6" />
-            </button>
-            <h2 className="text-lg mb-4 text-white">You do not have enough credits to generate a comic. <br />
-            Please recharge your credits.</h2>
-            <Button onClick={handleBuyCredits} className="bg-blue-600 hover:bg-blue-700 text-white">
-              Buy Credits
-            </Button>
-          </div>
-        </div>
-      )}
-    </div>
+    </>
   );
 }
 

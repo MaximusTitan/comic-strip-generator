@@ -212,7 +212,7 @@ export default function Generation() {
         }
       `}</style>
 
-      <div className="flex flex-col items-center justify-between h-screen bg-black text-white p-4">
+      <div className="flex flex-col items-center justify-between h-screen bg-black text-white p-4" style={{ fontFamily: "'DM Sans', sans-serif" }}>
         {/* Logo Button */}
         <div className="absolute top-10 left-0 p-4">
           <Button
