@@ -4,6 +4,7 @@ import { SubmitButton } from "@/components/submit-button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import Link from "next/link";
+import '@fontsource/dm-sans';
 
 export default async function Signup(props: {
   searchParams: Promise<Message>;
@@ -21,14 +22,14 @@ export default async function Signup(props: {
   }
 
   return (
-    <div className="h-screen flex items-center justify-center bg-gradient-to-b from-rose-50 to-white">
+    <div className="h-screen flex items-center justify-center bg-gradient-to-b from-rose-50 to-white font-dm-sans">
       <form className="w-full max-w-md px-8 py-12 bg-white shadow-lg rounded-lg border border-gray-100">
         <h1 className="text-3xl font-bold text-center text-rose-500 mb-4">
           Sign up
         </h1>
         <p className="text-sm text-center text-gray-600 mb-6">
           Already have an account?{" "}
-          <Link href="/sign-in" className="text-rose-500 font-medium underline">
+          <Link href="/auth/sign-in" className="text-rose-500 font-medium underline">
             Sign in
           </Link>
         </p>

@@ -7,6 +7,7 @@ import { SubmitButton } from "@/components/submit-button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import Link from "next/link";
+import '@fontsource/dm-sans'; // Import DM Sans font
 
 interface LoginProps {
   searchParams: Promise<Message>;
@@ -29,7 +30,7 @@ export default function Login({ searchParams }: LoginProps) {
   }, [searchParams]);  
 
   return (
-    <div className="h-screen flex items-center justify-center bg-gradient-to-b from-rose-50 to-white">
+    <div className="h-screen flex items-center justify-center bg-gradient-to-b from-rose-50 to-white font-dm-sans">
       <form
         className="w-full max-w-md px-8 py-12 bg-white shadow-lg rounded-lg border border-gray-100"
         onSubmit={async (event) => {
@@ -43,7 +44,7 @@ export default function Login({ searchParams }: LoginProps) {
         </h1>
         <p className="text-sm text-center text-gray-600 mb-6">
           Don’t have an account?{" "}
-          <Link href="/sign-up" className="text-rose-500 font-medium underline">
+          <Link href="/auth/sign-up" className="text-rose-500 font-medium underline">
             Sign up
           </Link>
         </p>
