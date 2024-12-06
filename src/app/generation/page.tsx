@@ -1,14 +1,15 @@
 "use client"
-import { useEffect, useState, useCallback, useMemo, useRef } from "react";
-import NextImage from "next/image";
+
+import { useEffect, useState, useCallback, useMemo } from "react";
 import { useRouter } from "next/navigation";
 import { supabase } from "@/lib/supabaseClient";
-import { ChevronLeft, ChevronRight, Download, Home } from "lucide-react";
+import { ChevronLeft, ChevronRight, Download, Home } from 'lucide-react';
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import jsPDF from "jspdf";
 import html2canvas from "html2canvas";
 import { useSession } from "@clerk/nextjs";
+import Navbar from "@/components/ui/Navbar";
 
 export default function Generation() {
     const { isSignedIn, session } = useSession();
@@ -110,20 +111,82 @@ export default function Generation() {
         }, 150);
     }, [imageData.urls, preloadImage, isAnimating]);
 
-    const handleDownloadPDF = async () => {
-        const pdf = new jsPDF();
-        const imageElements = document.querySelectorAll(".pdf-image");
-        for (let i = 0; i < imageElements.length; i++) {
-            const canvas = await html2canvas(imageElements[i] as HTMLElement);
-            const imgData = canvas.toDataURL("image/png");
-            pdf.addImage(imgData, "PNG", 0, 0, 210, 297);
-            if (i < imageElements.length - 1) {
-                pdf.addPage();
-            }
-        }
-        pdf.save("comic-strip.pdf");
-    };
-
+        const handleDownloadPDF = async () => {
+          if (!imageData.urls.length || !imageData.descriptions.length) {
+              console.error("No images or descriptions available for generating the PDF.");
+              return;
+          }
+      
+          const pdf = new jsPDF({
+              orientation: "landscape",
+              unit: "px",
+              format: [512, 288], // PDF page dimensions (scaled down)
+          });
+      
+          for (let i = 0; i < imageData.urls.length; i++) {
+              const imageUrl = imageData.urls[i];
+              const description = imageData.descriptions[i];
+      
+              try {
+                  // Create an off-screen image element
+                  const img = new Image();
+                  img.crossOrigin = "anonymous"; // Handle cross-origin images
+                  img.src = imageUrl;
+      
+                  await new Promise((resolve, reject) => {
+                      img.onload = resolve;
+                      img.onerror = reject;
+                  });
+      
+                  // Render image onto canvas
+                  const canvas = document.createElement("canvas");
+                  canvas.width = 512; // Scale image to fit within the smaller page size
+                  canvas.height = 288;
+                  const ctx = canvas.getContext("2d");
+      
+                  if (ctx) {
+                      ctx.fillStyle = "white"; // Set a white background
+                      ctx.fillRect(0, 0, canvas.width, canvas.height);
+                      ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
+      
+                      // Convert canvas to base64 image
+                      const imgData = canvas.toDataURL("image/png");
+      
+                      // Add image to PDF
+                      pdf.addImage(imgData, "PNG", 0, 0, 512, 288);
+      
+                      // Add black background for the description
+                      const textBoxHeight = 30; // Reduced height for text box
+                      const textBoxY = 258; // Position the text box 30px from the bottom of the page
+                      pdf.setFillColor(0, 0, 0); // Black background
+                      pdf.rect(0, textBoxY, 512, textBoxHeight, "F"); // Draw filled rectangle at the bottom
+      
+                      // Add description text over the black box
+                      pdf.setFontSize(16); // Increased font size
+                      pdf.setTextColor(255, 255, 255); // White text color for contrast against the black background
+                      const textX = 10; // Margin from left
+                      const textY = textBoxY + 20; // Center the text vertically within the box
+                      const maxWidth = 492; // Ensure text stays within page bounds
+                      pdf.text(description, textX, textY, { maxWidth });
+                  }
+      
+                  // Add a new page unless it's the last image
+                  if (i < imageData.urls.length - 1) {
+                      pdf.addPage();
+                  }
+              } catch (error) {
+                  console.error(`Error loading or rendering image at ${imageUrl}:`, error);
+              }
+          }
+      
+          // Generate filename from the first description
+          const filename = `${imageData.descriptions[0]
+              .replace(/[^a-zA-Z0-9]/g, "_")
+              .substring(0, 50)}-comic-strip.pdf`;
+      
+          pdf.save(filename);
+      };  
+  
     const handleSidePanelNavigation = useCallback((index: number) => {
         if (index === currentImageIndex || index < 0 || index >= imageData.urls.length) return;
         const direction = index > currentImageIndex ? "right" : "left";
@@ -173,81 +236,49 @@ export default function Generation() {
     };
 
     return (
-        <>
-            <style jsx global>{`
-                @keyframes slideInRight {
-                    from { transform: translateX(100%); opacity: 0; }
-                    to { transform: translateX(0); opacity: 1; }
-                }
-                @keyframes slideInLeft {
-                    from { transform: translateX(-100%); opacity: 0; }
-                    to { transform: translateX(0); opacity: 1; }
-                }
-                @keyframes slideOutLeft {
-                    from { transform: translateX(0); opacity: 1; }
-                    to { transform: translateX(-100%); opacity: 0; }
-                }
-                @keyframes slideOutRight {
-                    from { transform: translateX(0); opacity: 1; }
-                    to { transform: translateX(100%); opacity: 0; }
-                }
-                .animate-slide-in-right {
-                    animation: slideInRight 0.3s ease-out;
-                }
-                .animate-slide-in-left {
-                    animation: slideInLeft 0.3s ease-out;
-                }
-                .animate-slide-out-left {
-                    animation: slideOutLeft 0.3s ease-out;
-                }
-                .animate-slide-out-right {
-                    animation: slideOutRight 0.3s ease-out;
-                }
-            `}</style>
-            <div className="flex h-screen bg-black text-white">
-                <div className="w-64 bg-gray-900 p-4 overflow-y-auto">
-                    {sidePanelImages.map((image, idx) => {
-                        return (
-                            <div
-                                key={`side-panel-${idx}`}
-                                className={`mb-4 cursor-pointer transition-transform hover:scale-105 ${
-                                    image.index === currentImageIndex ? 'border-2 border-blue-500' : ''
-                                }`}
-                                onClick={() => handleSidePanelNavigation(image.index)}
-                            >
-                                <img
-                                    src={image.src}
-                                    alt={`Side panel image ${image.index + 1}`}
-                                    className="w-full h-40 object-cover rounded"
-                                />
-                                <p className="text-xs mt-2 text-center line-clamp-2">
-                                    {image.description}
-                                </p>
-                            </div>
-                        );
-                    })}
-                </div>
-                <div className="flex flex-col items-center justify-between flex-grow bg-black text-white p-4">
-                    <div className="absolute top-10 left-64 p-4">
-                        <Button
-                            onClick={() => router.push("/")}
-                            className="transition-transform transform hover:scale-105"
+        <div className="relative" style={{ fontFamily: "'Bangers', cursive" }}>
+            <div className="absolute top-0 left-0 w-full z-50">
+                <Navbar style={{ height: '10vh', marginBottom: 0 }} />
+            </div>
+            
+            <div className="flex h-screen bg-white text-black pt-[12vh]">
+            
+            <div className="flex">
+                  {/* Parent Component */}
+                  <div className="w-full p-10 pl-40 bg-white">
+                    {/* Child Component */}
+                    <div 
+                      className="w-64 bg-white p-6 overflow-y-auto" 
+                      style={{ paddingLeft: '0px', height: 'calc(100vh - 25vh)' }}
+                    >
+                      {sidePanelImages.map((image, idx) => (
+                        <div
+                          key={`side-panel-${idx}`}
+                          className={`mb-4 cursor-pointer transition-transform hover:scale-105 ${
+                            image.index === currentImageIndex ? 'border-2 border-blue-500' : ''
+                          }`}
+                          onClick={() => handleSidePanelNavigation(image.index)}
                         >
-                            <NextImage
-                                src="/comig-gen.png"
-                                alt="Comic Strip Generator"
-                                width={200}
-                                height={50}
-                                className="rounded-lg"
-                                unoptimized
-                            />
-                        </Button>
+                          <img
+                            src={image.src}
+                            alt={`Side panel image ${image.index + 1}`}
+                            className="w-full h-40 object-cover rounded"
+                          />
+                          <p className="text-xs mt-2 text-center line-clamp-2 text-gray-600">
+                            {image.description}
+                          </p>
+                        </div>
+                      ))}
                     </div>
-                    <div className="w-full max-w-4xl flex justify-between items-center">
+                  </div>
+                </div>
+
+                <div className="flex flex-col items-center flex-grow bg-white text-black pr-20">
+                    <div className="w-full max-w-4xl flex items-center" style={{ marginBottom: 10 }}>
                         <Button
                             variant="outline"
                             size="icon"
-                            className="bg-gray-800 hover:bg-gray-700 text-white"
+                            className="inline-flex items-center justify-center whitespace-nowrap rounded-md text-sm font-medium transition-colors focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring disabled:pointer-events-none disabled:opacity-50 border border-input shadow-sm hover:text-accent-foreground h-9 w-9 bg-gray-200 hover:bg-gray-300 text-black"
                             onClick={() => router.push("/")}
                         >
                             <Home className="h-5 w-5" />
@@ -258,29 +289,28 @@ export default function Generation() {
                         <Button
                             variant="outline"
                             size="icon"
-                            className="bg-gray-800 hover:bg-gray-700 text-white"
+                            className="inline-flex items-center justify-center whitespace-nowrap rounded-md text-sm font-medium transition-colors focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring disabled:pointer-events-none disabled:opacity-50 border border-input shadow-sm hover:text-accent-foreground h-9 w-9 bg-gray-200 hover:bg-gray-300 text-black"
                             onClick={handleDownloadPDF}
                         >
                             <Download className="h-5 w-5" />
                         </Button>
                     </div>
-                    <div className="w-full max-w-4xl flex-grow flex items-center justify-center my-4">
+                    <div className="w-full max-w-4xl flex items-center justify-center">
                         {loading ? (
                             <div className="animate-spin rounded-full h-16 w-16 border-t-2 border-b-2 border-blue-500"></div>
                         ) : imageData.urls.length > 0 ? (
-                            <Card className="w-full h-full bg-black border-black overflow-hidden flex flex-col">
-                                <CardContent className="p-0 flex-grow flex flex-col">
-                                    <div className="relative flex-grow flex justify-center items-center">
+                            <Card className="w-full bg-white border-gray-200 overflow-hidden">
+                                <CardContent className="p-0">
+                                    <div className="relative w-full" style={{ height: 'calc(100vh - 25vh)' }}>
                                         <div
                                             key={currentImageIndex}
-                                            className={`absolute w-full h-full pdf-image ${getAnimationClasses()}`}
+                                            className={`w-full h-full pdf-image ${getAnimationClasses()}`}
                                         >
                                             {currentImage ? (
                                                 <img
                                                     src={currentImage.src}
                                                     alt={`Comic image ${currentImageIndex + 1}`}
-                                                    className="w-full h-full object-contain rounded-t"
-                                                    style={{ maxHeight: 'calc(100vh - 290px)' }}
+                                                    className="w-full h-full object-contain"
                                                 />
                                             ) : (
                                                 <div className="w-full h-full flex items-center justify-center">
@@ -293,7 +323,7 @@ export default function Generation() {
                                                 variant="outline"
                                                 size="icon"
                                                 disabled={isAnimating}
-                                                className="absolute right-2 top-1/2 transform -translate-y-1/2 bg-gray-800 hover:bg-gray-700 text-white"
+                                                className="absolute right-2 top-1/2 transform -translate-y-1/2 bg-gray-200 hover:bg-gray-300 text-black"
                                                 onClick={() => handleNavigation("right")}
                                             >
                                                 <ChevronRight className="h-6 w-6" />
@@ -304,31 +334,27 @@ export default function Generation() {
                                                 variant="outline"
                                                 size="icon"
                                                 disabled={isAnimating}
-                                                className="absolute left-2 top-1/2 transform -translate-y-1/2 bg-gray-800 hover:bg-gray-700 text-white"
+                                                className="absolute left-2 top-1/2 transform -translate-y-1/2 bg-gray-200 hover:bg-gray-300 text-black"
                                                 onClick={() => handleNavigation("left")}
                                             >
                                                 <ChevronLeft className="h-6 w-6" />
                                             </Button>
                                         )}
                                     </div>
-                                    <div className="bg-black p-2 rounded-b">
-                                        <p className="text-white text-center text-sm md:text-base line-clamp-2">
+                                    <div className="bg-white py-1">
+                                        <p className="text-black text-center text-sm md:text-base line-clamp-2">
                                             {imageData.descriptions[currentImageIndex]}
                                         </p>
                                     </div>
                                 </CardContent>
                             </Card>
                         ) : (
-                            <p className="text-white text-xl text-center">No images found.</p>
+                            <p className="text-black text-xl text-center">No images found.</p>
                         )}
-                    </div>
-                    <div className="w-full max-w-4xl flex justify-center">
-                        <p className="text-gray-400 text-sm">
-                            Image {currentImageIndex + 1} of {imageData.urls.length}
-                        </p>
                     </div>
                 </div>
             </div>
-        </>
+        </div>
     );
 }
+

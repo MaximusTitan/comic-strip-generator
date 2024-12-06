@@ -4,6 +4,7 @@ import { encodedRedirect } from "@/utils/utils";
 import { createClient } from "@/utils/supabase/server";
 import { headers } from "next/headers";
 import { redirect } from "next/navigation";
+import { Message } from "@/components/form-message";
 
 export async function signUpAction(formData: FormData): Promise<void> {
   const email = formData.get("email")?.toString();
@@ -29,7 +30,7 @@ export async function signUpAction(formData: FormData): Promise<void> {
   }
 }
 
-export const signInAction = async (formData: FormData) => {
+export const signInAction = async (formData: FormData): Promise<Message> => {
   const email = formData.get("email") as string;
   const password = formData.get("password") as string;
   const supabase = await createClient();
@@ -39,11 +40,13 @@ export const signInAction = async (formData: FormData) => {
     password,
   });
 
+  console.log("Sign-in result:", { error });
+
   if (error) {
-    return encodedRedirect("error", "/sign-in", error.message);
+    return { error: error.message };  // Always return an object with an error message
   }
 
-  return redirect("/");
+  return { success: "Successfully signed in" };  // Indicate success
 };
 
 export const forgotPasswordAction = async (formData: FormData) => {

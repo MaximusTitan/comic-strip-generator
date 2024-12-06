@@ -1,24 +1,24 @@
-export type Message =
-  | { success: string }
-  | { error: string }
-  | { message: string };
+// src/components/form-message.tsx
+import React from "react";
 
-export function FormMessage({ message }: { message: Message }) {
+export interface Message {
+  error?: string;
+  success?: string;
+}
+
+interface FormMessageProps {
+  message: Message;
+}
+
+export const FormMessage: React.FC<FormMessageProps> = ({ message }) => {
   return (
-    <div className="flex flex-col gap-2 w-full max-w-md text-sm">
-      {"success" in message && (
-        <div className="text-foreground border-l-2 border-foreground px-4">
-          {message.success}
-        </div>
+    <div className="mt-4">
+      {message.error && (
+        <div className="text-red-500 text-sm">{message.error}</div>
       )}
-      {"error" in message && (
-        <div className="text-destructive-foreground border-l-2 border-destructive-foreground px-4">
-          {message.error}
-        </div>
-      )}
-      {"message" in message && (
-        <div className="text-foreground border-l-2 px-4">{message.message}</div>
+      {message.success && (
+        <div className="text-green-500 text-sm">{message.success}</div>
       )}
     </div>
   );
-}
+};

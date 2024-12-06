@@ -2,89 +2,70 @@ import { useState } from "react";
 import Image from "next/image";
 import Link from "next/link";
 import { useAuth } from "@clerk/nextjs";
+import "@fortawesome/fontawesome-free/css/all.min.css";
 
-const Navbar = () => {
-  const { isSignedIn, signOut } = useAuth(); // `isSignedIn` checks if the user is logged in
-  const [showSignOut, setShowSignOut] = useState(false); // State to toggle the sign-out button
-  const [signOutClicked, setSignOutClicked] = useState(false); // State to track the click effect on Sign Out
-  const [signInClicked, setSignInClicked] = useState(false); // State to track the click effect on Sign In
+const Navbar = ({ style }: { style?: React.CSSProperties }) => {
+  const { isSignedIn, signOut } = useAuth();
+  const [showSignOut, setShowSignOut] = useState(false);
+  const [signOutClicked, setSignOutClicked] = useState(false);
+  const [signInClicked, setSignInClicked] = useState(false);
 
-  // Toggle the visibility of the sign-out button
   const handleAvatarClick = () => {
     setShowSignOut((prev) => !prev);
   };
 
-  // Handle Sign In button click effect
   const handleSignInClick = () => {
     setSignInClicked(true);
     setTimeout(() => {
-      setSignInClicked(false); // Reset after 300ms (or adjust as needed)
+      setSignInClicked(false);
     }, 300);
   };
 
-  // Handle Sign Out button click effect
   const handleSignOutClick = () => {
     setSignOutClicked(true);
     setTimeout(() => {
-      setSignOutClicked(false); // Reset after 300ms (or adjust as needed)
-      signOut(); // Sign out the user after the effect
+      setSignOutClicked(false);
+      signOut();
     }, 300);
   };
 
   return (
-    <nav className="flex items-center justify-between bg-white px-8 py-4 shadow-md">
+    <nav className="flex items-center justify-between bg-white px-8 py-4" style={style}>
       {/* Logo Section */}
-      <div className="flex items-center space-x-3">
+      <div className="flex items-center space-x-3 pl-10">
         <Image
-          src="/comig-gen.png" // Replace with the actual logo file path
+          src="/comig-gen.png"
           alt="Comic Gen Logo"
-          width={150} // 200% bigger than the original 40px width
-          height={150} // 200% bigger than the original 40px height
+          width={100}
+          height={100}
+          className="ml-36 pt-10"
         />
       </div>
 
-      {/* Centered Navigation Links */}
-      <div className="flex items-center absolute left-1/2 transform -translate-x-1/2 space-x-6">
-        <Link href="/generation">
-          <span
-            className="text-lg font-semibold text-gray-1000 hover:text-white hover:bg-orange-500 transition duration-300 px-10 py-1 rounded-lg"
-            style={{ position: "relative", left: "500px" }}
-          >
-            Create
-          </span>
-        </Link>
+      {/* Right-Aligned Navigation and User Profile */}
+      <div className="flex items-center space-x-8">
+
+        {/* History Button */}
         <Link href="/comics-history">
-          <span
-            className="text-lg font-semibold text-gray-1000 hover:text-white hover:bg-orange-500 transition duration-300 px-10 py-1 rounded-lg"
-            style={{ position: "relative", left: "500px" }}
-          >
+          <span className="text-lg font-semibold text-gray-1000 transition duration-300 px-4 py-1 rounded-lg">
             History
           </span>
         </Link>
-      </div>
 
-      {/* User Profile or Sign In */}
-      <div className="flex items-center">
+        {/* User Profile or Sign In */}
         {isSignedIn ? (
-          <div className="relative flex items-center space-x-4">
-            {/* Avatar */}
+          <div className="relative flex items-center">
             <div
-              className="w-10 h-10 bg-orange-500 text-white font-bold rounded-full flex items-center justify-center"
-              onClick={handleAvatarClick} // Toggle sign-out button on avatar click
+              className="w-10 h-10 bg-orange-500 text-white font-bold rounded-full flex items-center justify-center cursor-pointer"
+              onClick={handleAvatarClick}
               title="Profile"
-              style={{ cursor: "pointer" }}
             >
-              E
+              <i className="fas fa-user"></i>
             </div>
-
-            {/* Conditionally render the Sign Out button below the avatar */}
             {showSignOut && (
               <button
-                onClick={handleSignOutClick} // Handle Sign Out click effect
-                className={`absolute top-12 bg-red-600 hover:bg-red-700 text-white py-2 px-6 rounded-md transition duration-300 ${
-                  signOutClicked ? "bg-red-800" : ""
-                }`}
-                style={{ position: "absolute", left: "-30px" }}
+                onClick={handleSignOutClick}
+                className={`absolute top-12 bg-red-600 hover:bg-red-700 text-white py-2 px-6 rounded-md transition duration-300 ${signOutClicked ? "bg-red-800" : ""}`}
               >
                 Sign Out
               </button>
@@ -93,12 +74,9 @@ const Navbar = () => {
         ) : (
           <Link href="/sign-in">
             <span
-              className={`text-lg font-semibold text-gray-700 transition duration-300 px-6 py-1 rounded-lg ${
-                signInClicked
-                  ? "bg-orange-500 text-white"
-                  : "hover:text-white hover:bg-orange-1000"
+              className={`text-lg font-semibold text-gray-700 hover:text-white hover:bg-orange-500 transition duration-300 px-6 py-2 rounded-lg ${
+                signInClicked ? "bg-orange-500 text-white" : ""
               }`}
-              style={{ position: "absolute", left: "-10px" }}
               onClick={handleSignInClick}
             >
               Sign In

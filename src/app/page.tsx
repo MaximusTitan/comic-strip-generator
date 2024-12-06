@@ -1,20 +1,18 @@
 "use client";
 
 import { useState, useRef, useEffect } from "react";
+import { useSession } from "@supabase/auth-helpers-react";
+import { useRouter } from "next/navigation";
 import Image from "next/image";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
-import { useAuth } from "@clerk/nextjs";
-import { useRouter } from "next/navigation";
 import LoadingSpinner from "@/components/ui/LoadingSpinner";
+import Navbar from "@/components/ui/Navbar"; // Import the Navbar component
 import { supabase } from "../lib/supabaseClient";
 import { X, ChevronLeft, ChevronRight } from "lucide-react";
-import Navbar from "@/components/ui/Navbar"; // Import the Navbar component
-
-// import "@fontsource/bangers";
 
 export default function Home() {
-  const { userId } = useAuth();
+  const session = useSession(); // Use session directly
   const router = useRouter();
 
   const [prompt, setPrompt] = useState("");
@@ -30,25 +28,26 @@ export default function Home() {
   const textareaRef = useRef<HTMLTextAreaElement>(null);
   const imageContainerRef = useRef<HTMLDivElement>(null);
 
+  // Redirect if no session
+  /*
   useEffect(() => {
-    if (!userId) {
-      router.push("/auth/sign-in");
-    }
-  }, [userId, router]);
+    if (!session) router.push("/auth/sign-in");
+  }, [session, router]);
+  */
 
   const handleHistoryClick = () => {
     router.push("/comics-history");
   };
 
   const saveCreditRecord = async () => {
-    if (!userId) return;
+    if (!session?.user?.id) return;
 
     const now = new Date();
     const createdAt = now.toISOString();
 
     const { data, error } = await supabase
       .from("comics")
-      .insert([{ user_id: userId, created_at: createdAt, prompt }])
+      .insert([{ user_id: session.user.id, created_at: createdAt, prompt }])
       .select();
 
     if (error) {
@@ -60,36 +59,42 @@ export default function Home() {
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setImageUrls([]);
-
+  
     if (credits === 0 && imageCredits === 0) {
       setShowModal(true);
       return;
     }
-
+  
+    if (!session) {
+      console.error("Session is null. User might not be authenticated.");
+      router.push("/auth/sign-in");
+      return;
+    }
+  
     setLoading(true);
-
+  
     try {
       const promptResponse = await fetch("/api/prompt-generator", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ prompt }),
       });
-
+  
       const promptData = await promptResponse.json();
       if (!promptResponse.ok) throw new Error(promptData.message);
-
+  
       const imageResponse = await fetch("/api/image-generator", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ prompts: promptData.prompts }),
       });
-
+  
       const imageData = await imageResponse.json();
       if (!imageResponse.ok) throw new Error(imageData.message);
-
+  
       setImageUrls(imageData.imageUrls);
       setImgDesc(Object.values(promptData.img_desc));
-
+  
       if (imageData.imageUrls.length === 10) {
         const recordId = await saveCreditRecord();
         if (recordId) {
@@ -100,30 +105,30 @@ export default function Home() {
           );
         }
       }
-
+  
       if (credits > 0) {
         setCredits((prev) => prev - 6);
       } else if (imageCredits > 0) {
         const newImageCredits = imageCredits - 6;
         setImageCredits(newImageCredits);
-
+  
         const { error } = await supabase
           .from("users")
           .update({ image_credits: newImageCredits })
-          .eq("id", userId);
-
+          .eq("id", session.user.id); // TypeScript is safe now
+  
         if (error) {
           console.error("Error updating image credits in Supabase:", error);
         }
       }
-
+  
       router.push("/generation");
     } catch (error) {
       console.error("Error generating comic:", error);
     } finally {
       setLoading(false);
     }
-  };
+  };  
 
   const handleTextareaChange = (e: React.ChangeEvent<HTMLTextAreaElement>) => {
     setPrompt(e.target.value);
