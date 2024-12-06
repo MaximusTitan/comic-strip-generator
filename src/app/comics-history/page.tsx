@@ -4,13 +4,14 @@ import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import Image from "next/image";
 import { supabase } from "@/lib/supabaseClient";
-import { ChevronLeft, ChevronRight } from "lucide-react";
+import { ChevronLeft, ChevronRight, Download } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { useAuth } from "@clerk/nextjs"; // Import Clerk hook
 import { PostgrestResponse } from "@supabase/supabase-js";
-import { jsPDF } from "jspdf"; // Import jsPDF
-import "@fontsource/bangers";
+import jsPDF from "jspdf";
+import html2canvas from "html2canvas";
+
 type ComicData = {
   urls: string[];
   descriptions: string[];
@@ -24,12 +25,13 @@ type SupabaseComic = {
   created_at: string;
 };
 
-export default function Generation() {
+export default function ComicsHistory() {
   const router = useRouter();
   const { userId } = useAuth(); // Get the logged-in user's ID
   const [comicsData, setComicsData] = useState<ComicData[]>([]);
   const [currentImageIndices, setCurrentImageIndices] = useState<number[]>([]);
   const [loading, setLoading] = useState<boolean>(true);
+  const [isDownloading, setIsDownloading] = useState<boolean>(false); // New state for download loading
 
   useEffect(() => {
     const fetchAllImages = async () => {
@@ -103,18 +105,38 @@ export default function Generation() {
     });
   };
 
-  const downloadPDF = () => {
-    const doc = new jsPDF();
-    comicsData.forEach((comic, comicIndex) => {
-      comic.urls.forEach((url, imageIndex) => {
-        doc.addImage(url, "JPEG", 10, 10, 180, 160); // Add image to PDF
-        doc.text(comic.descriptions[imageIndex], 10, 170); // Add description
-        if (imageIndex < comic.urls.length - 1) {
-          doc.addPage(); // Add a new page if there are more images
-        }
-      });
-    });
-    doc.save("comic-strip.pdf"); // Download PDF
+  const handleDownloadPDF = async (comic: ComicData) => {
+    setIsDownloading(true); // Set downloading state to true
+    const pdf = new jsPDF("landscape", "mm", [270.93, 152.4]);
+
+    for (let i = 0; i < comic.urls.length; i++) {
+      if (i > 0) {
+        pdf.addPage([270.93, 152.4]);
+      }
+
+      const imgUrl = comic.urls[i];
+      const description = comic.descriptions[i] || "";
+
+      // Add the image (full dimensions).
+      pdf.addImage(imgUrl, "PNG", 0, 0, 270.93, 152.4);
+
+      // Add a semi-transparent black rectangle at the bottom.
+      pdf.setFillColor(0, 0, 0); // Black color.
+      pdf.setDrawColor(0, 0, 0); // Black color for borders as well.
+      pdf.rect(0, 132.4, 270.93, 20, "F");
+
+      // Set transparency for the rectangle by adjusting fill color alpha.
+      pdf.setFillColor(0, 0, 0, 128); // Set alpha to 128 (50% transparency)
+
+      // Add white text over the rectangle.
+      pdf.setFontSize(12);
+      pdf.setTextColor(255, 255, 255); // White text.
+      pdf.text(description, 10, 145, { maxWidth: 250 }); // Ensure text wraps.
+    }
+
+    // Save the PDF with the prompt as the filename.
+    pdf.save(`${comic.prompt.replace(/[^a-zA-Z0-9_-]/g, "_")}.pdf`);
+    setIsDownloading(false); // Reset downloading state after saving
   };
 
   return (
@@ -169,6 +191,17 @@ export default function Generation() {
                     <span className="sr-only">Previous image</span>
                   </Button>
                 )}
+                {/* Download Button */}
+                <Button
+                  variant="outline"
+                  size="icon"
+                  className="absolute bottom-2 right-2"
+                  onClick={() => handleDownloadPDF(comic)}
+                  disabled={isDownloading} // Disable button while downloading
+                >
+                  <Download className="h-4 w-4" />
+                  <span className="sr-only">Download PDF</span>
+                </Button>
               </div>
               <div className="bg-black p-4 rounded-b">
                 <p className="text-white text-center">
@@ -180,13 +213,6 @@ export default function Generation() {
         ))
       ) : (
         <p className="text-white text-xl animate-fade-in">No images found.</p>
-      )}
-
-      {/* Download PDF button */}
-      {comicsData.length > 0 && (
-        <Button onClick={downloadPDF} className="mt-4 bg-green-500 hover:bg-green-600">
-          Download All Images as PDF
-        </Button>
       )}
     </div>
   );
