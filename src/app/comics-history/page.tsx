@@ -10,7 +10,7 @@ import { Card, CardContent } from "@/components/ui/card";
 import { useAuth } from "@clerk/nextjs"; // Import Clerk hook
 import { PostgrestResponse } from "@supabase/supabase-js";
 import { jsPDF } from "jspdf"; // Import jsPDF
-
+import "@fontsource/bangers";
 type ComicData = {
   urls: string[];
   descriptions: string[];
@@ -118,7 +118,7 @@ export default function Generation() {
   };
 
   return (
-    <div className="flex flex-col items-center min-h-screen bg-black p-4 sm:p-8">
+    <div className="flex flex-col items-center min-h-screen bg-white p-4 sm:p-8 font-banger">
       <div className="absolute top-10 left-0 p-4">
         <Button
           onClick={() => router.push("/")}
