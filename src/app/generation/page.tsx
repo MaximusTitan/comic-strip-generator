@@ -3,7 +3,7 @@
 import { useEffect, useState, useCallback, useMemo } from "react";
 import { useRouter } from "next/navigation";
 import { supabase } from "@/lib/supabaseClient";
-import { ChevronLeft, ChevronRight, Download, Home } from 'lucide-react';
+import { ChevronLeft, ChevronRight, Download, Home, Send } from 'lucide-react';
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import jsPDF from "jspdf";
@@ -275,21 +275,25 @@ export default function Generation() {
 
                 <div className="flex flex-col items-center flex-grow bg-white text-black pr-20">
                     <div className="w-full max-w-4xl flex items-center" style={{ marginBottom: 10 }}>
+                        <div className="flex-grow relative">
+                            <input
+                                type="text"
+                                className="w-full border border-gray-300 rounded-md p-2 pr-16"
+                                placeholder="Enter your prompt here..."
+                                value={imageData.prompt}
+                                onChange={(e) => setImageData({ ...imageData, prompt: e.target.value })}
+                            />
+                            <button
+                                className="absolute right-2 top-1/2 transform -translate-y-1/2 h-9 bg-transparent border-none cursor-pointer"
+                                onClick={() => {/* Add your send functionality here */}}
+                            >
+                                <Send className="h-5 w-5 text-black" />
+                            </button>
+                        </div>
                         <Button
                             variant="outline"
                             size="icon"
-                            className="inline-flex items-center justify-center whitespace-nowrap rounded-md text-sm font-medium transition-colors focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring disabled:pointer-events-none disabled:opacity-50 border border-input shadow-sm hover:text-accent-foreground h-9 w-9 bg-gray-200 hover:bg-gray-300 text-black"
-                            onClick={() => router.push("/")}
-                        >
-                            <Home className="h-5 w-5" />
-                        </Button>
-                        <h1 className="text-2xl md:text-3xl font-bold text-center flex-grow truncate px-2">
-                            {imageData.prompt}
-                        </h1>
-                        <Button
-                            variant="outline"
-                            size="icon"
-                            className="inline-flex items-center justify-center whitespace-nowrap rounded-md text-sm font-medium transition-colors focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring disabled:pointer-events-none disabled:opacity-50 border border-input shadow-sm hover:text-accent-foreground h-9 w-9 bg-gray-200 hover:bg-gray-300 text-black"
+                            className="inline-flex items-center justify-center whitespace-nowrap rounded-md text-sm font-medium transition-colors focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring disabled:pointer-events-none disabled:opacity-50 border border-input shadow-sm hover:text-accent-foreground h-9 w-9 bg-white hover:bg-gray-300 text-black"
                             onClick={handleDownloadPDF}
                         >
                             <Download className="h-5 w-5" />

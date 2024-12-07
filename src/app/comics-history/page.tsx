@@ -10,7 +10,7 @@ import { Card, CardContent } from "@/components/ui/card";
 import { useAuth } from "@clerk/nextjs"; // Import Clerk hook
 import { PostgrestResponse } from "@supabase/supabase-js";
 import jsPDF from "jspdf";
-import html2canvas from "html2canvas";
+import Navbar from "@/components/ui/Navbar"
 
 type ComicData = {
   urls: string[];
@@ -32,6 +32,8 @@ export default function ComicsHistory() {
   const [currentImageIndices, setCurrentImageIndices] = useState<number[]>([]);
   const [loading, setLoading] = useState<boolean>(true);
   const [isDownloading, setIsDownloading] = useState<boolean>(false); // New state for download loading
+  const [animationDirection, setAnimationDirection] = useState<'left' | 'right' | null>(null);
+  const [isAnimating, setIsAnimating] = useState(false);
 
   useEffect(() => {
     const fetchAllImages = async () => {
@@ -94,15 +96,22 @@ export default function ComicsHistory() {
   }, [userId]);
 
   const handleFlip = (direction: "left" | "right", index: number) => {
+    if (isAnimating) return; // Prevent flipping while animating
+    setIsAnimating(true);
+    setAnimationDirection(direction);
     setCurrentImageIndices((prevIndices) => {
-      const newIndices = [...prevIndices];
-      if (direction === "right") {
-        newIndices[index] = Math.min(newIndices[index] + 1, comicsData[index].urls.length - 1);
-      } else {
-        newIndices[index] = Math.max(newIndices[index] - 1, 0);
-      }
-      return newIndices;
+        const newIndices = [...prevIndices];
+        if (direction === "right") {
+            newIndices[index] = Math.min(newIndices[index] + 1, comicsData[index].urls.length - 1);
+        } else {
+            newIndices[index] = Math.max(newIndices[index] - 1, 0);
+        }
+        return newIndices;
     });
+    setTimeout(() => {
+        setIsAnimating(false);
+        setAnimationDirection(null);
+    }, 300); // Match the duration of your animation
   };
 
   const handleDownloadPDF = async (comic: ComicData) => {
@@ -139,27 +148,33 @@ export default function ComicsHistory() {
     setIsDownloading(false); // Reset downloading state after saving
   };
 
+  const getAnimationClasses = () => {
+    if (!animationDirection) return "";
+    if (animationDirection === 'right') {
+        return isAnimating ? "animate-slide-out-left" : "animate-slide-in-right";
+    } else {
+        return isAnimating ? "animate-slide-out-right" : "animate-slide-in-left";
+    }
+  };
+
   return (
     <div className="flex flex-col items-center min-h-screen bg-white p-4 sm:p-8 font-banger">
-      <div className="absolute top-10 left-0 p-4">
-        <Button
-          onClick={() => router.push("/")}
-          className="transition-transform transform hover:scale-105"
-        >
-          <Image src="/comig-gen.png" alt="Comic Strip Generator" width={200} height={50} className="rounded-lg" unoptimized />
-        </Button>
+      
+      <div className="absolute top-0 left-0 w-full z-50">
+          <Navbar style={{ height: '10vh', marginBottom: 0 }} />
       </div>
+
       {loading ? (
         <div className="flex items-center justify-center h-[400px]">
           <div className="animate-spin rounded-full h-16 w-16 border-t-2 border-b-2 border-white"></div>
         </div>
       ) : comicsData.length > 0 ? (
         comicsData.map((comic, comicIndex) => (
-          <Card key={comicIndex} className="w-full max-w-3xl bg-black border-white-700 mb-8">
+          <Card key={comicIndex} className="w-full max-w-3xl bg-black border-white-700 mb-8 pt-10">
             <CardContent className="p-0">
               <h2 className="text-2xl font-bold text-white text-center py-4">{comic.prompt}</h2>
               <div className="relative w-full h-[400px] sm:h-[500px] flex justify-center items-center overflow-hidden">
-                <div className="relative w-full h-full">
+                <div className={`relative w-full h-full ${isAnimating ? getAnimationClasses() : ''}`}>
                   <Image
                     src={comic.urls[currentImageIndices[comicIndex]]}
                     alt={`Comic image ${currentImageIndices[comicIndex] + 1}`}

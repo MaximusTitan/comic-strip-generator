@@ -1,14 +1,23 @@
-import { useState } from "react";
+"use client"
+
+import { useState, useEffect } from "react";
 import Image from "next/image";
 import Link from "next/link";
 import { useAuth } from "@clerk/nextjs";
 import "@fortawesome/fontawesome-free/css/all.min.css";
+import { useRouter } from 'next/navigation';
 
 const Navbar = ({ style }: { style?: React.CSSProperties }) => {
   const { isSignedIn, signOut } = useAuth();
   const [showSignOut, setShowSignOut] = useState(false);
   const [signOutClicked, setSignOutClicked] = useState(false);
   const [signInClicked, setSignInClicked] = useState(false);
+  const router = useRouter();
+  const [isClient, setIsClient] = useState(false);
+
+  useEffect(() => {
+    setIsClient(true);
+  }, []);
 
   const handleAvatarClick = () => {
     setShowSignOut((prev) => !prev);
@@ -29,12 +38,24 @@ const Navbar = ({ style }: { style?: React.CSSProperties }) => {
     }, 300);
   };
 
+  const handleLogoClick = () => {
+    if (isClient) {
+      router.push('/');
+    }
+  };
+
+  const history_visit = () => {
+    if (isClient) {
+      router.push('/comics-history');
+    }
+  };
+
   return (
     <nav className="flex items-center justify-between bg-white px-8 py-4" style={style}>
       {/* Logo Section */}
-      <div className="flex items-center space-x-3 pl-10">
+      <div className="flex items-center space-x-3 pl-10" onClick={handleLogoClick}>
         <Image
-          src="/comig-gen.png"
+          src="/comic-gen.png"
           alt="Comic Gen Logo"
           width={100}
           height={100}
@@ -43,14 +64,12 @@ const Navbar = ({ style }: { style?: React.CSSProperties }) => {
       </div>
 
       {/* Right-Aligned Navigation and User Profile */}
-      <div className="flex items-center space-x-8">
+      <div className="flex items-center space-x-8" onClick={history_visit}>
 
         {/* History Button */}
-        <Link href="/comics-history">
           <span className="text-lg font-semibold text-gray-1000 transition duration-300 px-4 py-1 rounded-lg">
             History
           </span>
-        </Link>
 
         {/* User Profile or Sign In */}
         {isSignedIn ? (
