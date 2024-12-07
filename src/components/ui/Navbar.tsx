@@ -91,7 +91,7 @@ const Navbar = ({ style }: { style?: React.CSSProperties }) => {
             )}
           </div>
         ) : (
-          <Link href="/sign-in">
+          <Link href="/auth/sign-in">
             <span
               className={`text-lg font-semibold text-gray-700 hover:text-white hover:bg-orange-500 transition duration-300 px-6 py-2 rounded-lg ${
                 signInClicked ? "bg-orange-500 text-white" : ""
