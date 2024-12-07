@@ -8,12 +8,9 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import jsPDF from "jspdf";
 import html2canvas from "html2canvas";
-import { useSession } from "@clerk/nextjs";
 import Navbar from "@/components/ui/Navbar";
 
 export default function Generation() {
-    const { isSignedIn, session } = useSession();
-    const userId = isSignedIn ? session?.user?.id : null;
     const router = useRouter();
     const [imageData, setImageData] = useState<{
         urls: string[];
@@ -51,12 +48,10 @@ export default function Generation() {
 
     useEffect(() => {
         const fetchLatestImages = async () => {
-            if (!userId) return;
             try {
                 const { data, error } = await supabase
                     .from("comics")
                     .select("screenshot_url, image_description, prompt")
-                    .eq("user_id", userId)
                     .order("created_at", { ascending: false })
                     .limit(1)
                     .single();
@@ -90,7 +85,7 @@ export default function Generation() {
             }
         };
         fetchLatestImages();
-    }, [userId]);
+    }, []);
 
     const handleNavigation = useCallback((direction: "left" | "right") => {
         if (isAnimating) return;

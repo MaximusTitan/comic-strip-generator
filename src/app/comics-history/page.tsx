@@ -7,8 +7,6 @@ import { supabase } from "@/lib/supabaseClient";
 import { ChevronLeft, ChevronRight, Download } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
-import { useAuth } from "@clerk/nextjs"; // Import Clerk hook
-import { PostgrestResponse } from "@supabase/supabase-js";
 import jsPDF from "jspdf";
 import Navbar from "@/components/ui/Navbar"
 
@@ -18,33 +16,22 @@ type ComicData = {
   prompt: string;
 };
 
-type SupabaseComic = {
-  screenshot_url: string;
-  image_description: string;
-  prompt: string;
-  created_at: string;
-};
-
 export default function ComicsHistory() {
   const router = useRouter();
-  const { userId } = useAuth(); // Get the logged-in user's ID
   const [comicsData, setComicsData] = useState<ComicData[]>([]);
   const [currentImageIndices, setCurrentImageIndices] = useState<number[]>([]);
   const [loading, setLoading] = useState<boolean>(true);
-  const [isDownloading, setIsDownloading] = useState<boolean>(false); // New state for download loading
+  const [isDownloading, setIsDownloading] = useState<boolean>(false);
   const [animationDirection, setAnimationDirection] = useState<'left' | 'right' | null>(null);
   const [isAnimating, setIsAnimating] = useState(false);
 
   useEffect(() => {
     const fetchAllImages = async () => {
-      if (!userId) return; // Ensure the user is logged in
-
       setLoading(true);
       try {
-        const { data, error }: PostgrestResponse<SupabaseComic> = await supabase
+        const { data, error } = await supabase
           .from("comics")
           .select("screenshot_url, image_description, prompt, created_at")
-          .eq("user_id", userId) // Filter by the logged-in user's ID
           .order("created_at", { ascending: false });
 
         if (error) {
@@ -93,7 +80,7 @@ export default function ComicsHistory() {
     };
 
     fetchAllImages();
-  }, [userId]);
+  }, []);
 
   const handleFlip = (direction: "left" | "right", index: number) => {
     if (isAnimating) return; // Prevent flipping while animating
